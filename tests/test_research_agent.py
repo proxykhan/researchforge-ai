@@ -1,13 +1,21 @@
-"""Tests for the multi-agent research graph (Phase 4)."""
+"""Tests for the multi-agent research graph."""
 
 from __future__ import annotations
 
 import json
 
+from researchforge.agents.critic import CriticAgent
+from researchforge.agents.debate import DebateAgent
+from researchforge.agents.fact_checker import FactCheckerAgent
 from researchforge.agents.planner import PlannerAgent
 from researchforge.agents.research import build_research_graph
 from researchforge.agents.researcher import ResearcherAgent
-from researchforge.agents.state import ResearchPlan, ResearchState
+from researchforge.agents.state import (
+    CriticResult,
+    DebateResult,
+    ResearchPlan,
+    ResearchState,
+)
 from researchforge.agents.synthesizer import SynthesizerAgent, _format_papers
 from researchforge.api.schemas import ResearchStatus
 from researchforge.integrations.models import Author, PaperResult, SearchQuery, SearchResponse
@@ -346,6 +354,308 @@ class TestFormatPapers:
 # ---------------------------------------------------------------------------
 
 
+def _make_full_graph_responses() -> list[str]:
+    """Build the 7 LLM responses needed for a full graph run."""
+    plan = json.dumps(
+        {
+            "domain": "NLP",
+            "subtasks": ["How does deep learning help NLP?"],
+            "search_queries": ["deep learning NLP"],
+            "completion_criteria": "Explain with citations",
+        }
+    )
+    synthesis = "Deep learning is transforming NLP via attention mechanisms."
+    fact_check = json.dumps(
+        [
+            {
+                "claim": "Deep learning is transforming NLP",
+                "status": "supported",
+                "confidence": 0.9,
+                "evidence": ["Deep Learning for NLP"],
+                "reasoning": "Directly stated in the paper.",
+            }
+        ]
+    )
+    support = "Evidence strongly supports that deep learning helps NLP."
+    skeptic = "Some limitations exist but overall evidence is strong."
+    judge = json.dumps(
+        {
+            "judgment": "Support has stronger evidence.",
+            "conclusion": "Deep learning significantly advances NLP.",
+        }
+    )
+    critic = json.dumps(
+        {
+            "completeness_score": 0.85,
+            "missing_areas": [],
+            "weak_points": [],
+            "needs_more_research": False,
+            "additional_queries": [],
+            "feedback": "Research is adequate.",
+        }
+    )
+    return [plan, synthesis, fact_check, support, skeptic, judge, critic]
+
+
+# ---------------------------------------------------------------------------
+# Fact-checker tests
+# ---------------------------------------------------------------------------
+
+
+class TestFactCheckerAgent:
+    async def test_parses_valid_verifications(self) -> None:
+        response = json.dumps(
+            [
+                {
+                    "claim": "Transformers are effective",
+                    "status": "supported",
+                    "confidence": 0.9,
+                    "evidence": ["Paper A"],
+                    "reasoning": "Direct evidence.",
+                }
+            ]
+        )
+        llm = FakeLLM(responses=[response])
+        agent = FactCheckerAgent(llm=llm)
+
+        result = await agent.run(
+            ResearchState(
+                question="test",
+                synthesis="Transformers are effective.",
+                papers=[SAMPLE_PAPER],
+            )
+        )
+
+        assert len(result["claim_verifications"]) == 1
+        v = result["claim_verifications"][0]
+        assert v.status == "supported"
+        assert v.confidence == 0.9
+
+    async def test_handles_invalid_json(self) -> None:
+        llm = FakeLLM(responses=["not valid json"])
+        agent = FactCheckerAgent(llm=llm)
+
+        result = await agent.run(
+            ResearchState(question="test", synthesis="Some claim.", papers=[SAMPLE_PAPER])
+        )
+
+        assert result["claim_verifications"] == []
+
+    async def test_empty_synthesis(self) -> None:
+        llm = FakeLLM(responses=[])
+        agent = FactCheckerAgent(llm=llm)
+
+        result = await agent.run(ResearchState(question="test", synthesis="", papers=[]))
+
+        assert result["claim_verifications"] == []
+        assert len(llm.calls) == 0
+
+    async def test_clamps_confidence(self) -> None:
+        response = json.dumps([{"claim": "test", "status": "supported", "confidence": 5.0}])
+        llm = FakeLLM(responses=[response])
+        agent = FactCheckerAgent(llm=llm)
+
+        result = await agent.run(
+            ResearchState(question="test", synthesis="test", papers=[SAMPLE_PAPER])
+        )
+
+        assert result["claim_verifications"][0].confidence == 1.0
+
+    async def test_normalizes_invalid_status(self) -> None:
+        response = json.dumps([{"claim": "test", "status": "maybe"}])
+        llm = FakeLLM(responses=[response])
+        agent = FactCheckerAgent(llm=llm)
+
+        result = await agent.run(
+            ResearchState(question="test", synthesis="test", papers=[SAMPLE_PAPER])
+        )
+
+        assert result["claim_verifications"][0].status == "insufficient_evidence"
+
+    async def test_calls_status_callback(self) -> None:
+        response = json.dumps([])
+        llm = FakeLLM(responses=[response])
+        agent = FactCheckerAgent(llm=llm)
+        statuses, state = _make_status_tracker()
+        state["synthesis"] = "some text"
+        state["papers"] = [SAMPLE_PAPER]
+
+        await agent.run(state)
+
+        assert statuses == [ResearchStatus.VERIFYING]
+
+
+# ---------------------------------------------------------------------------
+# Debate tests
+# ---------------------------------------------------------------------------
+
+
+class TestDebateAgent:
+    async def test_produces_debate_result(self) -> None:
+        judge_json = json.dumps({"judgment": "Support wins.", "conclusion": "Conclusion here."})
+        llm = FakeLLM(responses=["Support argument.", "Skeptic argument.", judge_json])
+        agent = DebateAgent(llm=llm)
+
+        result = await agent.run(
+            ResearchState(
+                question="Is deep learning effective?",
+                synthesis="DL is effective.",
+                papers=[SAMPLE_PAPER],
+            )
+        )
+
+        debate = result["debate_result"]
+        assert isinstance(debate, DebateResult)
+        assert debate.support_argument == "Support argument."
+        assert debate.skeptic_argument == "Skeptic argument."
+        assert debate.judgment == "Support wins."
+        assert debate.conclusion == "Conclusion here."
+
+    async def test_three_llm_calls(self) -> None:
+        judge_json = json.dumps({"judgment": "j", "conclusion": "c"})
+        llm = FakeLLM(responses=["s", "k", judge_json])
+        agent = DebateAgent(llm=llm)
+
+        await agent.run(ResearchState(question="q", synthesis="text", papers=[SAMPLE_PAPER]))
+
+        assert len(llm.calls) == 3
+
+    async def test_empty_synthesis(self) -> None:
+        llm = FakeLLM(responses=[])
+        agent = DebateAgent(llm=llm)
+
+        result = await agent.run(ResearchState(question="q", synthesis=""))
+
+        debate = result["debate_result"]
+        assert "No synthesis" in debate.support_argument
+        assert len(llm.calls) == 0
+
+    async def test_handles_invalid_judge_json(self) -> None:
+        llm = FakeLLM(responses=["support", "skeptic", "not json"])
+        agent = DebateAgent(llm=llm)
+
+        result = await agent.run(
+            ResearchState(question="q", synthesis="text", papers=[SAMPLE_PAPER])
+        )
+
+        debate = result["debate_result"]
+        assert debate.judgment == "not json"
+
+    async def test_calls_status_callback(self) -> None:
+        judge_json = json.dumps({"judgment": "j", "conclusion": "c"})
+        llm = FakeLLM(responses=["s", "k", judge_json])
+        agent = DebateAgent(llm=llm)
+        statuses, state = _make_status_tracker()
+        state["synthesis"] = "text"
+        state["papers"] = [SAMPLE_PAPER]
+
+        await agent.run(state)
+
+        assert statuses == [ResearchStatus.DEBATING]
+
+
+# ---------------------------------------------------------------------------
+# Critic tests
+# ---------------------------------------------------------------------------
+
+
+class TestCriticAgent:
+    async def test_parses_valid_result(self) -> None:
+        response = json.dumps(
+            {
+                "completeness_score": 0.8,
+                "missing_areas": ["area1"],
+                "weak_points": ["weak1"],
+                "needs_more_research": False,
+                "additional_queries": [],
+                "feedback": "Good research.",
+            }
+        )
+        llm = FakeLLM(responses=[response])
+        agent = CriticAgent(llm=llm)
+
+        result = await agent.run(
+            ResearchState(question="q", synthesis="text", papers=[SAMPLE_PAPER])
+        )
+
+        cr = result["critic_result"]
+        assert isinstance(cr, CriticResult)
+        assert cr.completeness_score == 0.8
+        assert cr.missing_areas == ["area1"]
+        assert not cr.needs_more_research
+        assert result["iteration"] == 1
+
+    async def test_requests_more_research(self) -> None:
+        response = json.dumps(
+            {
+                "completeness_score": 0.3,
+                "missing_areas": ["gap"],
+                "weak_points": [],
+                "needs_more_research": True,
+                "additional_queries": ["new query"],
+                "feedback": "More needed.",
+            }
+        )
+        llm = FakeLLM(responses=[response])
+        agent = CriticAgent(llm=llm, max_iterations=3)
+
+        result = await agent.run(
+            ResearchState(question="q", synthesis="text", papers=[SAMPLE_PAPER], iteration=0)
+        )
+
+        cr = result["critic_result"]
+        assert cr.needs_more_research is True
+        assert cr.additional_queries == ["new query"]
+        assert "new query" in result["search_queries"]
+
+    async def test_enforces_max_iterations(self) -> None:
+        response = json.dumps(
+            {
+                "completeness_score": 0.3,
+                "needs_more_research": True,
+                "additional_queries": ["more"],
+                "feedback": "Needs more.",
+            }
+        )
+        llm = FakeLLM(responses=[response])
+        agent = CriticAgent(llm=llm, max_iterations=2)
+
+        result = await agent.run(
+            ResearchState(question="q", synthesis="text", papers=[], iteration=1)
+        )
+
+        cr = result["critic_result"]
+        assert cr.needs_more_research is False
+
+    async def test_handles_invalid_json(self) -> None:
+        llm = FakeLLM(responses=["not json"])
+        agent = CriticAgent(llm=llm)
+
+        result = await agent.run(ResearchState(question="q", synthesis="text", papers=[]))
+
+        cr = result["critic_result"]
+        assert cr.completeness_score == 0.5
+        assert not cr.needs_more_research
+
+    async def test_calls_status_callback(self) -> None:
+        response = json.dumps(
+            {"completeness_score": 0.9, "needs_more_research": False, "feedback": "ok"}
+        )
+        llm = FakeLLM(responses=[response])
+        agent = CriticAgent(llm=llm)
+        statuses, state = _make_status_tracker()
+        state["synthesis"] = "text"
+
+        await agent.run(state)
+
+        assert statuses == [ResearchStatus.CRITIQUING]
+
+
+# ---------------------------------------------------------------------------
+# Graph tests
+# ---------------------------------------------------------------------------
+
+
 class TestBuildResearchGraph:
     def test_graph_compiles(self) -> None:
         llm = FakeLLM(responses=[])
@@ -355,15 +665,8 @@ class TestBuildResearchGraph:
         assert compiled is not None
 
     async def test_full_graph_execution(self) -> None:
-        plan_json = json.dumps(
-            {
-                "domain": "NLP",
-                "subtasks": ["How does deep learning help NLP?"],
-                "search_queries": ["deep learning NLP"],
-                "completion_criteria": "Explain with citations",
-            }
-        )
-        llm = FakeLLM(responses=[plan_json, "Summary: Deep learning is transforming NLP."])
+        responses = _make_full_graph_responses()
+        llm = FakeLLM(responses=responses)
         fake_provider = FakeSearchProvider("test_prov", [SAMPLE_PAPER])
         registry = ProviderRegistry(providers=[])
         registry.register(fake_provider)  # type: ignore[arg-type]
@@ -372,20 +675,15 @@ class TestBuildResearchGraph:
         compiled = graph.compile()
         result = await compiled.ainvoke({"question": "How does deep learning help NLP?"})
 
-        assert result["search_queries"] == ["deep learning NLP"]
         assert len(result["papers"]) == 1
-        assert "Deep learning" in result["synthesis"]
+        assert result["synthesis"] is not None
+        assert len(result["claim_verifications"]) == 1
+        assert result["debate_result"] is not None
+        assert result["critic_result"] is not None
 
     async def test_graph_with_status_callback(self) -> None:
-        plan_json = json.dumps(
-            {
-                "domain": "test",
-                "subtasks": ["sub"],
-                "search_queries": ["query"],
-                "completion_criteria": "done",
-            }
-        )
-        llm = FakeLLM(responses=[plan_json, "Synthesis complete."])
+        responses = _make_full_graph_responses()
+        llm = FakeLLM(responses=responses)
         registry = ProviderRegistry(providers=[])
 
         graph = build_research_graph(llm, registry)
@@ -401,3 +699,6 @@ class TestBuildResearchGraph:
         assert ResearchStatus.PLANNING in statuses
         assert ResearchStatus.RESEARCHING in statuses
         assert ResearchStatus.SYNTHESIZING in statuses
+        assert ResearchStatus.VERIFYING in statuses
+        assert ResearchStatus.DEBATING in statuses
+        assert ResearchStatus.CRITIQUING in statuses

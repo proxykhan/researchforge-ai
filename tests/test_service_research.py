@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 
 from researchforge.api.schemas import ResearchStatus
 from researchforge.integrations.models import Author, PaperResult
@@ -23,14 +24,37 @@ SAMPLE_PAPER = PaperResult(
 )
 
 
+def _default_llm_responses() -> list[str]:
+    """Build the 7 LLM responses needed for a full graph run."""
+    return [
+        json.dumps(
+            {
+                "domain": "test",
+                "subtasks": ["sub"],
+                "search_queries": ["test query"],
+                "completion_criteria": "done",
+            }
+        ),
+        "Research synthesis result.",
+        json.dumps([{"claim": "test", "status": "supported", "confidence": 0.9}]),
+        "Support argument.",
+        "Skeptic argument.",
+        json.dumps({"judgment": "balanced", "conclusion": "conclusion"}),
+        json.dumps(
+            {
+                "completeness_score": 0.85,
+                "needs_more_research": False,
+                "feedback": "ok",
+            }
+        ),
+    ]
+
+
 def _make_service(
     llm_responses: list[str] | None = None,
     papers: list[PaperResult] | None = None,
 ) -> ResearchService:
-    responses = llm_responses or [
-        '["test query"]',
-        "Research synthesis result.",
-    ]
+    responses = llm_responses or _default_llm_responses()
     llm = FakeLLM(responses=responses)
     provider = FakeSearchProvider("fake", papers or [SAMPLE_PAPER])
     registry = ProviderRegistry(providers=[])
