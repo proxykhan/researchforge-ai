@@ -36,7 +36,7 @@ SAMPLE_S2_RESPONSE = {
 }
 
 
-def _mock_json_response(data: dict, status_code: int = 200) -> httpx.Response:
+def _mock_json_response(data: object, status_code: int = 200) -> httpx.Response:
     import json
 
     return httpx.Response(
@@ -49,7 +49,9 @@ def _mock_json_response(data: dict, status_code: int = 200) -> httpx.Response:
 
 class TestParsePaper:
     def test_parse_full_paper(self):
-        paper = _parse_paper(SAMPLE_S2_RESPONSE["data"][0])
+        data = SAMPLE_S2_RESPONSE["data"]
+        assert isinstance(data, list)
+        paper = _parse_paper(data[0])
         assert paper is not None
         assert paper.source == "semantic_scholar"
         assert paper.source_id == "abc123"

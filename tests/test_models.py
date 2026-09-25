@@ -22,17 +22,20 @@ class TestAuthor:
 
 
 class TestPaperResult:
-    def _make_paper(self, **overrides):
-        defaults = {
-            "source": "arxiv",
-            "source_id": "2401.00001",
-            "title": "Test Paper",
-            "authors": [Author(name="Alice"), Author(name="Bob")],
-            "abstract": "A test abstract.",
-            "url": "https://arxiv.org/abs/2401.00001",
-        }
-        defaults.update(overrides)
-        return PaperResult(**defaults)
+    def _make_paper(self, **overrides: object) -> PaperResult:
+        return PaperResult(
+            source=str(overrides.get("source", "arxiv")),
+            source_id=str(overrides.get("source_id", "2401.00001")),
+            title=str(overrides.get("title", "Test Paper")),
+            authors=overrides.get("authors", [Author(name="Alice"), Author(name="Bob")]),  # type: ignore[arg-type]
+            abstract=str(overrides.get("abstract", "A test abstract.")),
+            url=str(overrides.get("url", "https://arxiv.org/abs/2401.00001")),
+            published_date=overrides.get("published_date"),  # type: ignore[arg-type]
+            doi=overrides.get("doi"),  # type: ignore[arg-type]
+            pdf_url=overrides.get("pdf_url"),  # type: ignore[arg-type]
+            categories=overrides.get("categories", []),  # type: ignore[arg-type]
+            citation_count=overrides.get("citation_count"),  # type: ignore[arg-type]
+        )
 
     def test_display_authors_two(self):
         paper = self._make_paper()

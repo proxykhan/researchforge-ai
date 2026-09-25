@@ -40,7 +40,7 @@ SAMPLE_CROSSREF_RESPONSE = {
 }
 
 
-def _mock_json_response(data: dict, status_code: int = 200) -> httpx.Response:
+def _mock_json_response(data: object, status_code: int = 200) -> httpx.Response:
     import json
 
     return httpx.Response(
@@ -68,7 +68,11 @@ class TestParseDateParts:
 
 class TestParseItem:
     def test_parse_full_item(self):
-        paper = _parse_item(SAMPLE_CROSSREF_RESPONSE["message"]["items"][0])
+        message = SAMPLE_CROSSREF_RESPONSE["message"]
+        assert isinstance(message, dict)
+        items = message["items"]
+        assert isinstance(items, list)
+        paper = _parse_item(items[0])
         assert paper is not None
         assert paper.source == "crossref"
         assert paper.source_id == "10.1234/example.2024"
