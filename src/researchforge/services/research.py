@@ -116,12 +116,14 @@ class ResearchService:
         """Execute the research graph in the background."""
         job = self._jobs[job_id]
         try:
-            job.status = ResearchStatus.PLANNING
             graph = build_research_graph(self._llm, self._registry, self._llm_config)
             compiled = graph.compile()
 
+            def _update_status(status: ResearchStatus) -> None:
+                job.status = status
+
             result: ResearchState = await compiled.ainvoke(  # type: ignore[assignment]
-                {"question": job.question}
+                {"question": job.question, "status_callback": _update_status}
             )
 
             job.search_queries = result.get("search_queries", [])

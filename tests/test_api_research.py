@@ -78,7 +78,7 @@ class TestGetResearch:
         data = resp.json()
         assert data["id"] == job_id
         assert data["question"] == "What is deep learning?"
-        assert data["status"] in ("queued", "planning", "completed")
+        assert data["status"] in ("queued", "planning", "researching", "synthesizing", "completed")
 
     def test_404_for_unknown_id(self):
         client = _make_client()
