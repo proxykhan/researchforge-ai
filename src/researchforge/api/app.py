@@ -1,0 +1,45 @@
+"""FastAPI application factory."""
+
+from __future__ import annotations
+
+from fastapi import FastAPI
+
+from researchforge import __version__
+from researchforge.api.routes import health, research
+from researchforge.config import Settings, load_settings
+from researchforge.integrations.registry import ProviderRegistry
+from researchforge.llm.anthropic import AnthropicProvider
+from researchforge.llm.base import LLMProvider
+from researchforge.llm.models import LLMConfig
+from researchforge.services.research import ResearchService
+
+
+def create_app(
+    settings: Settings | None = None,
+    llm: LLMProvider | None = None,
+    registry: ProviderRegistry | None = None,
+) -> FastAPI:
+    """Build and configure the FastAPI application.
+
+    Parameters are injectable for testing — production uses defaults from env.
+    """
+    settings = settings or load_settings()
+
+    app = FastAPI(
+        title="ResearchForge AI",
+        version=__version__,
+        docs_url="/api/docs",
+        openapi_url="/api/openapi.json",
+    )
+
+    llm = llm or AnthropicProvider(default_model=settings.llm_model)
+    registry = registry or ProviderRegistry()
+
+    llm_config = LLMConfig(model=settings.llm_model)
+    service = ResearchService(llm=llm, registry=registry, llm_config=llm_config)
+    app.state.research_service = service
+
+    app.include_router(health.router, prefix="/api/v1")
+    app.include_router(research.router, prefix="/api/v1")
+
+    return app
