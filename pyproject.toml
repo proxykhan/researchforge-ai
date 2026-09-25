@@ -7,7 +7,9 @@ license = "MIT"
 authors = [
     { name = "Azhar", email = "mdazhark79@gmail.com" },
 ]
-dependencies = []
+dependencies = [
+    "httpx>=0.28",
+]
 
 [project.optional-dependencies]
 dev = [
@@ -40,7 +42,7 @@ select = [
     "UP",   # pyupgrade
     "B",    # flake8-bugbear
     "SIM",  # flake8-simplify
-    "TCH",  # flake8-type-checking
+    # "TCH" omitted: type-checking blocks add complexity without benefit for lightweight imports
     "RUF",  # ruff-specific
 ]
 
