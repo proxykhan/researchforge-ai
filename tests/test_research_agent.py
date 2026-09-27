@@ -6,6 +6,7 @@ import json
 
 from researchforge.agents.critic import CriticAgent
 from researchforge.agents.debate import DebateAgent
+from researchforge.agents.evaluator import EvaluationAgent, _parse_evaluation
 from researchforge.agents.fact_checker import FactCheckerAgent
 from researchforge.agents.planner import PlannerAgent
 from researchforge.agents.research import build_research_graph
@@ -13,6 +14,7 @@ from researchforge.agents.researcher import ResearcherAgent
 from researchforge.agents.state import (
     CriticResult,
     DebateResult,
+    EvaluationResult,
     ResearchPlan,
     ResearchState,
 )
@@ -355,7 +357,7 @@ class TestFormatPapers:
 
 
 def _make_full_graph_responses() -> list[str]:
-    """Build the 7 LLM responses needed for a full graph run."""
+    """Build the 8 LLM responses needed for a full graph run."""
     plan = json.dumps(
         {
             "domain": "NLP",
@@ -394,7 +396,20 @@ def _make_full_graph_responses() -> list[str]:
             "feedback": "Research is adequate.",
         }
     )
-    return [plan, synthesis, fact_check, support, skeptic, judge, critic]
+    evaluation = json.dumps(
+        {
+            "retrieval_score": 0.8,
+            "citation_score": 0.7,
+            "factual_grounding_score": 0.85,
+            "relevance_score": 0.9,
+            "completeness_score": 0.75,
+            "overall_score": 0.8,
+            "strengths": ["Good coverage", "Well-cited"],
+            "weaknesses": ["Could explore more angles"],
+            "summary": "Solid research with good evidence base.",
+        }
+    )
+    return [plan, synthesis, fact_check, support, skeptic, judge, critic, evaluation]
 
 
 # ---------------------------------------------------------------------------
@@ -652,6 +667,125 @@ class TestCriticAgent:
 
 
 # ---------------------------------------------------------------------------
+# Evaluator tests
+# ---------------------------------------------------------------------------
+
+
+class TestEvaluationAgent:
+    async def test_parses_valid_scores(self) -> None:
+        response = json.dumps(
+            {
+                "retrieval_score": 0.8,
+                "citation_score": 0.7,
+                "factual_grounding_score": 0.85,
+                "relevance_score": 0.9,
+                "completeness_score": 0.75,
+                "overall_score": 0.8,
+                "strengths": ["Good coverage"],
+                "weaknesses": ["Missing angles"],
+                "summary": "Solid work.",
+            }
+        )
+        llm = FakeLLM(responses=[response])
+        agent = EvaluationAgent(llm=llm)
+
+        result = await agent.run(
+            ResearchState(
+                question="test",
+                synthesis="Some synthesis.",
+                papers=[SAMPLE_PAPER],
+            )
+        )
+
+        ev = result["evaluation"]
+        assert isinstance(ev, EvaluationResult)
+        assert ev.retrieval_score == 0.8
+        assert ev.overall_score == 0.8
+        assert ev.strengths == ["Good coverage"]
+        assert ev.weaknesses == ["Missing angles"]
+
+    async def test_empty_synthesis(self) -> None:
+        llm = FakeLLM(responses=[])
+        agent = EvaluationAgent(llm=llm)
+
+        result = await agent.run(ResearchState(question="test", synthesis=""))
+
+        ev = result["evaluation"]
+        assert ev.overall_score == 0.0
+        assert "No synthesis" in ev.summary
+        assert len(llm.calls) == 0
+
+    async def test_handles_invalid_json(self) -> None:
+        llm = FakeLLM(responses=["not valid json"])
+        agent = EvaluationAgent(llm=llm)
+
+        result = await agent.run(
+            ResearchState(question="test", synthesis="text", papers=[SAMPLE_PAPER])
+        )
+
+        ev = result["evaluation"]
+        assert ev.overall_score == 0.5
+        assert "Unable to parse" in ev.summary
+
+    async def test_clamps_scores(self) -> None:
+        response = json.dumps(
+            {
+                "retrieval_score": 5.0,
+                "citation_score": -1.0,
+                "factual_grounding_score": 0.5,
+                "relevance_score": 0.5,
+                "completeness_score": 0.5,
+                "overall_score": 0.5,
+            }
+        )
+        llm = FakeLLM(responses=[response])
+        agent = EvaluationAgent(llm=llm)
+
+        result = await agent.run(
+            ResearchState(question="test", synthesis="text", papers=[SAMPLE_PAPER])
+        )
+
+        ev = result["evaluation"]
+        assert ev.retrieval_score == 1.0
+        assert ev.citation_score == 0.0
+
+    async def test_calls_status_callback(self) -> None:
+        response = json.dumps(
+            {
+                "retrieval_score": 0.5,
+                "citation_score": 0.5,
+                "factual_grounding_score": 0.5,
+                "relevance_score": 0.5,
+                "completeness_score": 0.5,
+                "overall_score": 0.5,
+            }
+        )
+        llm = FakeLLM(responses=[response])
+        agent = EvaluationAgent(llm=llm)
+        statuses, state = _make_status_tracker()
+        state["synthesis"] = "text"
+        state["papers"] = [SAMPLE_PAPER]
+
+        await agent.run(state)
+
+        assert statuses == [ResearchStatus.EVALUATING]
+
+
+class TestParseEvaluation:
+    def test_non_list_strengths(self) -> None:
+        data = json.dumps({"strengths": "just a string", "weaknesses": 42})
+        result = _parse_evaluation(data)
+        assert result.strengths == []
+        assert result.weaknesses == []
+
+    def test_non_numeric_scores_default(self) -> None:
+        data = json.dumps({"retrieval_score": "high", "overall_score": None})
+        result = _parse_evaluation(data)
+        assert result.retrieval_score == 0.5
+        assert result.overall_score == 0.5
+
+
+# ---------------------------------------------------------------------------
 # Graph tests
 # ---------------------------------------------------------------------------
 
@@ -680,6 +814,9 @@ class TestBuildResearchGraph:
         assert len(result["claim_verifications"]) == 1
         assert result["debate_result"] is not None
         assert result["critic_result"] is not None
+        assert result["evaluation"] is not None
+        assert isinstance(result["evaluation"], EvaluationResult)
+        assert result["evaluation"].overall_score == 0.8
 
     async def test_graph_with_status_callback(self) -> None:
         responses = _make_full_graph_responses()
@@ -702,3 +839,4 @@ class TestBuildResearchGraph:
         assert ResearchStatus.VERIFYING in statuses
         assert ResearchStatus.DEBATING in statuses
         assert ResearchStatus.CRITIQUING in statuses
+        assert ResearchStatus.EVALUATING in statuses

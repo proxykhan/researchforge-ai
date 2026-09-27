@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import time
 
 from fastapi.testclient import TestClient
@@ -28,8 +29,33 @@ def _make_client(
     papers: list[PaperResult] | None = None,
 ) -> TestClient:
     responses = llm_responses or [
-        '["AI research query"]',
+        json.dumps(
+            {
+                "domain": "AI",
+                "subtasks": ["sub"],
+                "search_queries": ["AI research query"],
+                "completion_criteria": "done",
+            }
+        ),
         "Summary of research findings on AI.",
+        json.dumps([{"claim": "test", "status": "supported", "confidence": 0.9}]),
+        "Support argument.",
+        "Skeptic argument.",
+        json.dumps({"judgment": "balanced", "conclusion": "conclusion"}),
+        json.dumps({"completeness_score": 0.9, "needs_more_research": False, "feedback": "ok"}),
+        json.dumps(
+            {
+                "retrieval_score": 0.8,
+                "citation_score": 0.7,
+                "factual_grounding_score": 0.8,
+                "relevance_score": 0.9,
+                "completeness_score": 0.8,
+                "overall_score": 0.8,
+                "strengths": ["Good"],
+                "weaknesses": [],
+                "summary": "Solid.",
+            }
+        ),
     ]
     llm = FakeLLM(responses=responses)
     provider = FakeSearchProvider("test_prov", papers or [SAMPLE_PAPER])
@@ -78,7 +104,17 @@ class TestGetResearch:
         data = resp.json()
         assert data["id"] == job_id
         assert data["question"] == "What is deep learning?"
-        assert data["status"] in ("queued", "planning", "researching", "synthesizing", "completed")
+        assert data["status"] in (
+            "queued",
+            "planning",
+            "researching",
+            "synthesizing",
+            "verifying",
+            "debating",
+            "critiquing",
+            "evaluating",
+            "completed",
+        )
 
     def test_404_for_unknown_id(self):
         client = _make_client()

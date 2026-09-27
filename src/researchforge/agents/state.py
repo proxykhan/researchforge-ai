@@ -51,6 +51,21 @@ class CriticResult:
     feedback: str = ""
 
 
+@dataclass(frozen=True)
+class EvaluationResult:
+    """Evaluation agent's quality assessment of the research output."""
+
+    retrieval_score: float
+    citation_score: float
+    factual_grounding_score: float
+    relevance_score: float
+    completeness_score: float
+    overall_score: float
+    strengths: list[str] = field(default_factory=list)
+    weaknesses: list[str] = field(default_factory=list)
+    summary: str = ""
+
+
 class StatusCallback(Protocol):
     """Called by graph nodes to report progress to the service layer."""
 
@@ -70,4 +85,5 @@ class ResearchState(TypedDict, total=False):
     claim_verifications: list[ClaimVerification]
     debate_result: DebateResult
     critic_result: CriticResult
+    evaluation: EvaluationResult
     iteration: int

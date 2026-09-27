@@ -1,6 +1,6 @@
 """Research agent graph — wires all agents into a LangGraph state graph.
 
-Flow: plan → search → synthesize → fact_check → debate → critic
+Flow: plan → search → synthesize → fact_check → debate → critic → evaluate
       ↑                                                    │
       └──────── (if critic says more research needed) ─────┘
 """
@@ -11,6 +11,7 @@ from langgraph.graph import END, StateGraph
 
 from researchforge.agents.critic import CriticAgent
 from researchforge.agents.debate import DebateAgent
+from researchforge.agents.evaluator import EvaluationAgent
 from researchforge.agents.fact_checker import FactCheckerAgent
 from researchforge.agents.planner import PlannerAgent
 from researchforge.agents.researcher import ResearcherAgent
@@ -26,7 +27,7 @@ def _should_continue(state: ResearchState) -> str:
     critic = state.get("critic_result")
     if critic and critic.needs_more_research:
         return "execute_search"
-    return END
+    return "evaluate"
 
 
 def build_research_graph(
@@ -43,6 +44,7 @@ def build_research_graph(
     fact_checker = FactCheckerAgent(llm=llm, llm_config=config)
     debater = DebateAgent(llm=llm, llm_config=config)
     critic = CriticAgent(llm=llm, llm_config=config)
+    evaluator = EvaluationAgent(llm=llm, llm_config=config)
 
     graph = StateGraph(ResearchState)
     graph.add_node("plan_research", planner.run)
@@ -51,6 +53,7 @@ def build_research_graph(
     graph.add_node("fact_check", fact_checker.run)
     graph.add_node("debate", debater.run)
     graph.add_node("critic", critic.run)
+    graph.add_node("evaluate", evaluator.run)
 
     graph.set_entry_point("plan_research")
     graph.add_edge("plan_research", "execute_search")
@@ -59,6 +62,7 @@ def build_research_graph(
     graph.add_edge("fact_check", "debate")
     graph.add_edge("debate", "critic")
     graph.add_conditional_edges("critic", _should_continue)
+    graph.add_edge("evaluate", END)
 
     return graph
 

@@ -25,7 +25,7 @@ SAMPLE_PAPER = PaperResult(
 
 
 def _default_llm_responses() -> list[str]:
-    """Build the 7 LLM responses needed for a full graph run."""
+    """Build the 8 LLM responses needed for a full graph run."""
     return [
         json.dumps(
             {
@@ -45,6 +45,19 @@ def _default_llm_responses() -> list[str]:
                 "completeness_score": 0.85,
                 "needs_more_research": False,
                 "feedback": "ok",
+            }
+        ),
+        json.dumps(
+            {
+                "retrieval_score": 0.8,
+                "citation_score": 0.7,
+                "factual_grounding_score": 0.8,
+                "relevance_score": 0.9,
+                "completeness_score": 0.8,
+                "overall_score": 0.8,
+                "strengths": ["Good"],
+                "weaknesses": [],
+                "summary": "Solid.",
             }
         ),
     ]

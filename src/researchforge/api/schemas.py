@@ -22,6 +22,7 @@ class ResearchStatus(enum.StrEnum):
     VERIFYING = "verifying"
     DEBATING = "debating"
     CRITIQUING = "critiquing"
+    EVALUATING = "evaluating"
     COMPLETED = "completed"
     FAILED = "failed"
 
