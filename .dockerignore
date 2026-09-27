@@ -1,0 +1,54 @@
+# Version control
+.git
+.gitignore
+
+# Python artifacts
+__pycache__
+*.py[cod]
+*$py.class
+*.egg-info
+*.egg
+dist
+build
+.eggs
+.venv
+venv
+
+# Environment / secrets
+.env
+.env.*
+
+# Testing / linting caches
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.coverage
+htmlcov
+
+# IDE
+.vscode
+.idea
+*.swp
+
+# Node / frontend (added in Phase 15)
+node_modules
+.next
+out
+
+# Terraform state
+.terraform
+*.tfstate
+*.tfstate.backup
+*.tfvars
+
+# Docker-in-Docker noise
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Documentation
+*.md
+!alembic/**/*.md
+LICENSE

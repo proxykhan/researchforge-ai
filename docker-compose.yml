@@ -1,0 +1,64 @@
+services:
+  # ---- PostgreSQL ----
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: researchforge
+      POSTGRES_PASSWORD: researchforge
+      POSTGRES_DB: researchforge
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U researchforge"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ---- Redis ----
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ---- API server ----
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      interval: 10s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+
+  # ---- Background worker ----
+  # Same image, different entrypoint.  The worker runs background
+  # research jobs; in production these scale independently from the API.
+  worker:
+    build: .
+    command: ["python", "-m", "researchforge.workers.run"]
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  pgdata:
