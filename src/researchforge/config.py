@@ -18,6 +18,8 @@ class Settings:
     llm_model: str = "claude-sonnet-5"
 
     database_url: str = ""
+    db_pool_size: int = 5
+    db_max_overflow: int = 10
     redis_url: str = ""
     auth_enabled: bool = True
 
@@ -52,6 +54,8 @@ def load_settings() -> Settings:
         llm_provider=os.getenv("LLM_PROVIDER", "anthropic"),
         llm_model=os.getenv("LLM_MODEL", "claude-sonnet-5"),
         database_url=os.getenv("DATABASE_URL", ""),
+        db_pool_size=int(os.getenv("DB_POOL_SIZE", "5")),
+        db_max_overflow=int(os.getenv("DB_MAX_OVERFLOW", "10")),
         redis_url=os.getenv("REDIS_URL", ""),
         auth_enabled=os.getenv("AUTH_ENABLED", "true").lower() == "true",
         otlp_endpoint=os.getenv("OTLP_ENDPOINT", ""),

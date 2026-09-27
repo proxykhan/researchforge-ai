@@ -21,7 +21,13 @@ from sqlalchemy.ext.asyncio import (
 )
 
 
-def build_engine(database_url: str, *, echo: bool = False) -> AsyncEngine:
+def build_engine(
+    database_url: str,
+    *,
+    echo: bool = False,
+    pool_size: int = 5,
+    max_overflow: int = 10,
+) -> AsyncEngine:
     """Create an async engine from a database URL.
 
     The URL must use the ``postgresql+asyncpg://`` scheme.
@@ -31,8 +37,8 @@ def build_engine(database_url: str, *, echo: bool = False) -> AsyncEngine:
         database_url,
         echo=echo,
         pool_pre_ping=True,
-        pool_size=5,
-        max_overflow=10,
+        pool_size=pool_size,
+        max_overflow=max_overflow,
     )
 
 

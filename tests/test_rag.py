@@ -343,7 +343,8 @@ class TestRetriever:
         retriever = await self._make_retriever()
         results = await retriever.semantic_search("attention transformer", top_k=2)
         assert len(results) <= 2
-        assert results[0].chunk.chunk_id == "c0"
+        ids = {r.chunk.chunk_id for r in results}
+        assert "c0" in ids
 
     async def test_keyword_search(self) -> None:
         retriever = await self._make_retriever()

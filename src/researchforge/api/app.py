@@ -8,6 +8,7 @@ from typing import Any
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 
 from researchforge import __version__
 from researchforge.api.routes import health, research
@@ -106,6 +107,7 @@ def create_app(
     )
 
     # ── Middleware (outermost first) ─────────────────────────────
+    app.add_middleware(GZipMiddleware, minimum_size=500)
     app.add_middleware(RequestSizeLimitMiddleware)
     app.add_middleware(SecurityHeadersMiddleware, enable_hsts=settings.is_production)
     app.add_middleware(RequestIDMiddleware)
