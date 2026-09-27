@@ -18,7 +18,6 @@ from researchforge.cache.rate_limiter import RateLimiter
 from researchforge.cache.redis_client import RedisClient
 from researchforge.config import Settings, load_settings
 from researchforge.integrations.registry import ProviderRegistry
-from researchforge.llm.anthropic import AnthropicProvider
 from researchforge.llm.base import LLMProvider
 from researchforge.llm.models import LLMConfig
 from researchforge.observability.logging import setup_logging
@@ -75,7 +74,15 @@ def create_app(
         environment=settings.app_env,
     )
 
-    llm = llm or AnthropicProvider(default_model=settings.llm_model)
+    if llm is None:
+        if settings.llm_provider == "gemini":
+            from researchforge.llm.gemini import GeminiProvider
+
+            llm = GeminiProvider(default_model=settings.llm_model)
+        else:
+            from researchforge.llm.anthropic import AnthropicProvider
+
+            llm = AnthropicProvider(default_model=settings.llm_model)
     registry = registry or ProviderRegistry()
 
     llm_config = LLMConfig(model=settings.llm_model)

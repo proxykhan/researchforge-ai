@@ -10,6 +10,7 @@ authors = [
 dependencies = [
     "httpx>=0.28",
     "anthropic>=1.0",
+    "google-genai>=1.0",
     "langgraph>=0.4",
     "fastapi>=0.115",
     "uvicorn[standard]>=0.34",
