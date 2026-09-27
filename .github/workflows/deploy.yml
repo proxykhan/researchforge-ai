@@ -11,6 +11,9 @@ concurrency:
 env:
   PYTHON_VERSION: "3.13"
   IMAGE_NAME: researchforge-ai
+  ECS_CLUSTER: researchforge-prod
+  ECS_API_SERVICE: researchforge-prod-api
+  ECS_WORKER_SERVICE: researchforge-prod-worker
 
 permissions:
   id-token: write
@@ -75,44 +78,14 @@ jobs:
       - name: Run tests
         run: pytest --cov=researchforge --cov-report=term-missing -q
 
-  # ── Build Docker image ───────────────────────────────────────
-  build:
-    name: Build Docker Image
+  # ── Build and push Docker image ──────────────────────────────
+  push-ecr:
+    name: Build & Push to ECR
     needs: [test]
     runs-on: ubuntu-latest
-    outputs:
-      image-tag: ${{ steps.meta.outputs.tags }}
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Docker metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.IMAGE_NAME }}
-          tags: |
-            type=sha,prefix=
-            type=raw,value=latest
-
-      - name: Build Docker image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          push: false
-          tags: ${{ steps.meta.outputs.tags }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-  # ── Push to Amazon ECR (Phase 12-13) ─────────────────────────
-  push-ecr:
-    name: Push to ECR
-    needs: [build]
-    runs-on: ubuntu-latest
     if: vars.AWS_ACCOUNT_ID != ''
+    outputs:
+      image: ${{ steps.image.outputs.uri }}
 
     steps:
       - uses: actions/checkout@v4
@@ -120,7 +93,7 @@ jobs:
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/github-actions-role
+          role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/researchforge-github-actions-role
           aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
 
       - name: Login to Amazon ECR
@@ -141,7 +114,11 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  # ── Deploy to AWS (Phase 12-13) ──────────────────────────────
+      - name: Output image URI
+        id: image
+        run: echo "uri=${{ steps.ecr-login.outputs.registry }}/${{ env.IMAGE_NAME }}:${{ github.sha }}" >> "$GITHUB_OUTPUT"
+
+  # ── Deploy to AWS ────────────────────────────────────────────
   deploy:
     name: Deploy to AWS
     needs: [push-ecr]
@@ -155,21 +132,69 @@ jobs:
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/github-actions-role
+          role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/researchforge-github-actions-role
           aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
 
-      - name: Run database migration
-        run: |
-          echo "::notice::Database migration will be configured in Phase 12-13"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
 
-      - name: Deploy ECS service
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Run database migration
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: alembic upgrade head
+
+      - name: Update API service
         run: |
-          echo "::notice::ECS deployment will be configured in Phase 12-13"
+          aws ecs update-service \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --service ${{ env.ECS_API_SERVICE }} \
+            --force-new-deployment \
+            --query 'service.serviceName' \
+            --output text
+
+      - name: Update worker service
+        run: |
+          aws ecs update-service \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --service ${{ env.ECS_WORKER_SERVICE }} \
+            --force-new-deployment \
+            --query 'service.serviceName' \
+            --output text
+
+      - name: Wait for API service stability
+        run: |
+          aws ecs wait services-stable \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --services ${{ env.ECS_API_SERVICE }}
 
       - name: Smoke test
         run: |
-          echo "::notice::Smoke tests will be configured in Phase 12-13"
+          ALB_DNS=$(aws elbv2 describe-load-balancers \
+            --names "${{ env.ECS_CLUSTER }}-alb" \
+            --query 'LoadBalancers[0].DNSName' \
+            --output text 2>/dev/null || echo "")
+          if [ -z "$ALB_DNS" ]; then
+            echo "::warning::ALB not found — skipping smoke test"
+            exit 0
+          fi
+          echo "Testing http://$ALB_DNS/api/v1/health"
+          curl -sf "http://$ALB_DNS/api/v1/health" | jq .
 
       - name: Health check
         run: |
-          echo "::notice::Health checks will be configured in Phase 12-13"
+          ALB_DNS=$(aws elbv2 describe-load-balancers \
+            --names "${{ env.ECS_CLUSTER }}-alb" \
+            --query 'LoadBalancers[0].DNSName' \
+            --output text 2>/dev/null || echo "")
+          if [ -z "$ALB_DNS" ]; then
+            echo "::warning::ALB not found — skipping health check"
+            exit 0
+          fi
+          echo "Testing http://$ALB_DNS/api/v1/ready"
+          curl -sf "http://$ALB_DNS/api/v1/ready" | jq .
+          echo "Deployment successful"

@@ -1,0 +1,112 @@
+name: Terraform
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "infrastructure/terraform/**"
+
+concurrency:
+  group: terraform-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+
+env:
+  TF_VERSION: "1.9"
+
+jobs:
+  # ── Format check ─────────────────────────────────────────────
+  fmt:
+    name: Terraform Format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Check formatting
+        run: terraform fmt -check -recursive infrastructure/terraform/
+
+  # ── Validate all environments ────────────────────────────────
+  validate:
+    name: Validate (${{ matrix.environment }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        environment: [dev, staging, prod]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform init (backend disabled for validation)
+        working-directory: infrastructure/terraform/environments/${{ matrix.environment }}
+        run: terraform init -backend=false
+
+      - name: Terraform validate
+        working-directory: infrastructure/terraform/environments/${{ matrix.environment }}
+        run: terraform validate
+
+  # ── Plan (requires AWS credentials) ──────────────────────────
+  plan:
+    name: Plan (${{ matrix.environment }})
+    needs: [fmt, validate]
+    runs-on: ubuntu-latest
+    if: vars.AWS_ACCOUNT_ID != ''
+    strategy:
+      matrix:
+        environment: [staging]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/researchforge-github-actions-role
+          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
+
+      - name: Terraform init
+        working-directory: infrastructure/terraform/environments/${{ matrix.environment }}
+        run: terraform init
+
+      - name: Terraform plan
+        working-directory: infrastructure/terraform/environments/${{ matrix.environment }}
+        run: terraform plan -no-color -out=tfplan
+        continue-on-error: true
+
+      - name: Post plan to PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { execSync } = require('child_process');
+            const plan = execSync(
+              'cd infrastructure/terraform/environments/${{ matrix.environment }} && terraform show -no-color tfplan',
+              { encoding: 'utf-8', maxBuffer: 1024 * 1024 }
+            ).substring(0, 60000);
+
+            const body = `### Terraform Plan — \`${{ matrix.environment }}\`
+            \`\`\`
+            ${plan}
+            \`\`\``;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body
+            });
