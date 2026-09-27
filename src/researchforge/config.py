@@ -21,6 +21,13 @@ class Settings:
     redis_url: str = ""
     auth_enabled: bool = True
 
+    # Observability
+    otlp_endpoint: str = ""
+    otel_console: bool = False
+
+    # Security
+    cors_origins: str = ""
+
     @property
     def is_production(self) -> bool:
         return self.app_env == "production"
@@ -28,6 +35,12 @@ class Settings:
     @property
     def is_testing(self) -> bool:
         return self.app_env == "testing"
+
+    @property
+    def cors_origin_list(self) -> list[str]:
+        if not self.cors_origins:
+            return []
+        return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
 
 
 def load_settings() -> Settings:
@@ -41,4 +54,7 @@ def load_settings() -> Settings:
         database_url=os.getenv("DATABASE_URL", ""),
         redis_url=os.getenv("REDIS_URL", ""),
         auth_enabled=os.getenv("AUTH_ENABLED", "true").lower() == "true",
+        otlp_endpoint=os.getenv("OTLP_ENDPOINT", ""),
+        otel_console=os.getenv("OTEL_CONSOLE", "false").lower() == "true",
+        cors_origins=os.getenv("CORS_ORIGINS", ""),
     )

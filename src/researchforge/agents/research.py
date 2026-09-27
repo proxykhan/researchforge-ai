@@ -20,6 +20,7 @@ from researchforge.agents.synthesizer import SynthesizerAgent
 from researchforge.integrations.registry import ProviderRegistry
 from researchforge.llm.base import LLMProvider
 from researchforge.llm.models import LLMConfig
+from researchforge.observability.instrumentation import traced_agent_node
 
 
 def _should_continue(state: ResearchState) -> str:
@@ -47,13 +48,13 @@ def build_research_graph(
     evaluator = EvaluationAgent(llm=llm, llm_config=config)
 
     graph = StateGraph(ResearchState)
-    graph.add_node("plan_research", planner.run)
-    graph.add_node("execute_search", researcher.run)
-    graph.add_node("synthesize", synthesizer.run)
-    graph.add_node("fact_check", fact_checker.run)
-    graph.add_node("debate", debater.run)
-    graph.add_node("critic", critic.run)
-    graph.add_node("evaluate", evaluator.run)
+    graph.add_node("plan_research", traced_agent_node("planner")(planner.run))
+    graph.add_node("execute_search", traced_agent_node("researcher")(researcher.run))
+    graph.add_node("synthesize", traced_agent_node("synthesizer")(synthesizer.run))
+    graph.add_node("fact_check", traced_agent_node("fact_checker")(fact_checker.run))
+    graph.add_node("debate", traced_agent_node("debate")(debater.run))
+    graph.add_node("critic", traced_agent_node("critic")(critic.run))
+    graph.add_node("evaluate", traced_agent_node("evaluator")(evaluator.run))
 
     graph.set_entry_point("plan_research")
     graph.add_edge("plan_research", "execute_search")

@@ -7,6 +7,7 @@ from contextlib import asynccontextmanager
 from typing import Any
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from researchforge import __version__
 from researchforge.api.routes import health, research
@@ -19,6 +20,10 @@ from researchforge.integrations.registry import ProviderRegistry
 from researchforge.llm.anthropic import AnthropicProvider
 from researchforge.llm.base import LLMProvider
 from researchforge.llm.models import LLMConfig
+from researchforge.observability.logging import setup_logging
+from researchforge.observability.middleware import RequestIDMiddleware, RequestSizeLimitMiddleware
+from researchforge.observability.security import SecurityHeadersMiddleware, cors_config
+from researchforge.observability.tracing import setup_tracing
 from researchforge.repositories.base import ResearchRepository
 from researchforge.repositories.memory import InMemoryResearchRepository
 from researchforge.services.research import ResearchService
@@ -58,6 +63,17 @@ def create_app(
     """
     settings = settings or load_settings()
 
+    # ── Observability bootstrap ──────────────────────────────────
+    setup_logging(
+        json=settings.is_production,
+        level=settings.log_level,
+    )
+    setup_tracing(
+        otlp_endpoint=settings.otlp_endpoint,
+        console=settings.otel_console,
+        environment=settings.app_env,
+    )
+
     llm = llm or AnthropicProvider(default_model=settings.llm_model)
     registry = registry or ProviderRegistry()
 
@@ -87,6 +103,20 @@ def create_app(
         docs_url="/api/docs",
         openapi_url="/api/openapi.json",
         lifespan=_build_lifespan(service, redis_client),
+    )
+
+    # ── Middleware (outermost first) ─────────────────────────────
+    app.add_middleware(RequestSizeLimitMiddleware)
+    app.add_middleware(SecurityHeadersMiddleware, enable_hsts=settings.is_production)
+    app.add_middleware(RequestIDMiddleware)
+    _cors = cors_config(allow_origins=settings.cors_origin_list)
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=_cors.allow_origins,
+        allow_credentials=_cors.allow_credentials,
+        allow_methods=_cors.allow_methods,
+        allow_headers=_cors.allow_headers,
+        expose_headers=_cors.expose_headers,
     )
 
     app.state.research_service = service
