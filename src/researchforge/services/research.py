@@ -6,13 +6,13 @@ The API layer delegates here; the agent layer runs underneath.
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
 from researchforge.agents.research import ResearchState, build_research_graph
+from researchforge.agents.state import EvaluationResult
 from researchforge.api.schemas import (
     PaperResponse,
     ResearchDetail,
@@ -25,6 +25,7 @@ from researchforge.integrations.models import PaperResult
 from researchforge.integrations.registry import ProviderRegistry
 from researchforge.llm.base import LLMProvider
 from researchforge.llm.models import LLMConfig
+from researchforge.workers.manager import JobManager
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +43,7 @@ class ResearchJob:
     papers: list[PaperResult] = field(default_factory=list)
     synthesis: str | None = None
     error: str | None = None
+    evaluation: EvaluationResult | None = None
 
 
 class ResearchService:
@@ -56,12 +58,17 @@ class ResearchService:
         llm: LLMProvider,
         registry: ProviderRegistry,
         llm_config: LLMConfig | None = None,
+        job_manager: JobManager | None = None,
     ) -> None:
         self._llm = llm
         self._registry = registry
         self._llm_config = llm_config or LLMConfig()
         self._jobs: dict[str, ResearchJob] = {}
-        self._tasks: set[asyncio.Task[None]] = set()
+        self._job_manager = job_manager or JobManager()
+
+    @property
+    def job_manager(self) -> JobManager:
+        return self._job_manager
 
     def create_job(self, question: str) -> ResearchSummary:
         """Create a new research job and schedule it for background execution."""
@@ -73,10 +80,17 @@ class ResearchService:
             created_at=datetime.now(UTC),
         )
         self._jobs[job_id] = job
-        task = asyncio.create_task(self._run_research(job_id))
-        self._tasks.add(task)
-        task.add_done_callback(self._tasks.discard)
+        self._job_manager.submit(job_id, lambda: self._run_research(job_id))
         return self._to_summary(job)
+
+    def list_jobs(self) -> list[ResearchSummary]:
+        """List all research jobs, newest first."""
+        sorted_jobs = sorted(
+            self._jobs.values(),
+            key=lambda j: j.created_at,
+            reverse=True,
+        )
+        return [self._to_summary(j) for j in sorted_jobs]
 
     def get_job(self, job_id: str) -> ResearchDetail | None:
         """Get full details for a research job."""
@@ -112,6 +126,35 @@ class ResearchService:
             papers=[_paper_to_response(p) for p in job.papers],
         )
 
+    def get_report(self, job_id: str) -> ResearchDetail | None:
+        """Get the final report including evaluation data."""
+        job = self._jobs.get(job_id)
+        if job is None:
+            return None
+        return ResearchDetail(
+            id=job.id,
+            question=job.question,
+            status=job.status,
+            created_at=job.created_at,
+            completed_at=job.completed_at,
+            search_queries=job.search_queries,
+            paper_count=len(job.papers),
+            synthesis=job.synthesis,
+            error=job.error,
+        )
+
+    def cancel_job(self, job_id: str) -> bool:
+        """Cancel a research job. Returns True if cancellation was requested."""
+        job = self._jobs.get(job_id)
+        if job is None:
+            return False
+        cancelled = self._job_manager.cancel(job_id)
+        if cancelled:
+            job.status = ResearchStatus.FAILED
+            job.error = "Cancelled by user"
+            job.completed_at = datetime.now(UTC)
+        return cancelled
+
     async def _run_research(self, job_id: str) -> None:
         """Execute the research graph in the background."""
         job = self._jobs[job_id]
@@ -130,6 +173,7 @@ class ResearchService:
             job.papers = result.get("papers", [])
             job.synthesis = result.get("synthesis")
             job.error = result.get("error")
+            job.evaluation = result.get("evaluation")
 
             job.status = ResearchStatus.COMPLETED
             job.completed_at = datetime.now(UTC)

@@ -11,6 +11,7 @@ from researchforge.integrations.registry import ProviderRegistry
 from researchforge.llm.base import LLMProvider
 from researchforge.llm.models import LLMConfig, LLMResponse, Message
 from researchforge.services.research import ResearchService
+from researchforge.workers.manager import JobManager
 
 from .conftest import FakeLLM, FakeSearchProvider
 
@@ -72,7 +73,9 @@ def _make_service(
     provider = FakeSearchProvider("fake", papers or [SAMPLE_PAPER])
     registry = ProviderRegistry(providers=[])
     registry.register(provider)  # type: ignore[arg-type]
-    return ResearchService(llm=llm, registry=registry)
+    manager = JobManager()
+    manager.start()
+    return ResearchService(llm=llm, registry=registry, job_manager=manager)
 
 
 class TestCreateJob:
@@ -154,7 +157,9 @@ class TestFailedJob:
                 raise RuntimeError("LLM exploded")
 
         registry = ProviderRegistry(providers=[])
-        service = ResearchService(llm=ExplodingLLM(), registry=registry)
+        manager = JobManager()
+        manager.start()
+        service = ResearchService(llm=ExplodingLLM(), registry=registry, job_manager=manager)
 
         summary = service.create_job("Will this fail?")
         await asyncio.sleep(0.3)
@@ -163,3 +168,54 @@ class TestFailedJob:
         assert detail is not None
         assert detail.status == ResearchStatus.FAILED
         assert detail.error is not None
+
+
+class TestListJobs:
+    def test_empty_list(self):
+        service = _make_service()
+        assert service.list_jobs() == []
+
+    async def test_lists_created_jobs(self):
+        service = _make_service()
+        service.create_job("Question one")
+        service.create_job("Question two")
+
+        jobs = service.list_jobs()
+        assert len(jobs) == 2
+        assert jobs[0].question == "Question two"
+        assert jobs[1].question == "Question one"
+
+
+class TestCancelJob:
+    async def test_cancel_running_job(self):
+        service = _make_service()
+        summary = service.create_job("Cancel me")
+
+        cancelled = service.cancel_job(summary.id)
+        assert cancelled
+
+        detail = service.get_job(summary.id)
+        assert detail is not None
+        assert detail.status == ResearchStatus.FAILED
+        assert detail.error == "Cancelled by user"
+
+    def test_cancel_nonexistent(self):
+        service = _make_service()
+        assert service.cancel_job("nope") is False
+
+
+class TestGetReport:
+    def test_report_returns_none_for_unknown(self):
+        service = _make_service()
+        assert service.get_report("nope") is None
+
+    async def test_report_returns_detail_after_completion(self):
+        service = _make_service()
+        summary = service.create_job("What is RAG?")
+
+        await asyncio.sleep(0.3)
+
+        report = service.get_report(summary.id)
+        assert report is not None
+        assert report.synthesis is not None
+        assert report.status == ResearchStatus.COMPLETED

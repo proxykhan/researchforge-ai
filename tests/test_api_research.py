@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 from researchforge.api.app import create_app
 from researchforge.integrations.models import Author, PaperResult
 from researchforge.integrations.registry import ProviderRegistry
+from researchforge.workers.manager import JobManager
 
 from .conftest import FakeLLM, FakeSearchProvider
 
@@ -61,7 +62,9 @@ def _make_client(
     provider = FakeSearchProvider("test_prov", papers or [SAMPLE_PAPER])
     registry = ProviderRegistry(providers=[])
     registry.register(provider)  # type: ignore[arg-type]
-    app = create_app(llm=llm, registry=registry)
+    manager = JobManager()
+    manager.start()
+    app = create_app(llm=llm, registry=registry, job_manager=manager)
     return TestClient(app)
 
 
@@ -159,3 +162,69 @@ class TestGetResearchSources:
         client = _make_client()
         resp = client.get("/api/v1/research/nonexistent-id/sources")
         assert resp.status_code == 404
+
+
+class TestListResearch:
+    def test_empty_list(self):
+        client = _make_client()
+        resp = client.get("/api/v1/research")
+        assert resp.status_code == 200
+        assert resp.json() == []
+
+    def test_lists_created_jobs(self):
+        client = _make_client()
+        client.post("/api/v1/research", json={"question": "First question"})
+        client.post("/api/v1/research", json={"question": "Second question"})
+
+        resp = client.get("/api/v1/research")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data) == 2
+        assert data[0]["question"] == "Second question"
+        assert data[1]["question"] == "First question"
+
+
+class TestGetResearchReport:
+    def test_returns_report(self):
+        client = _make_client()
+        create_resp = client.post("/api/v1/research", json={"question": "What is deep learning?"})
+        job_id = create_resp.json()["id"]
+
+        time.sleep(0.3)
+
+        resp = client.get(f"/api/v1/research/{job_id}/report")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["id"] == job_id
+        assert data["question"] == "What is deep learning?"
+
+    def test_404_for_unknown_id(self):
+        client = _make_client()
+        resp = client.get("/api/v1/research/nonexistent-id/report")
+        assert resp.status_code == 404
+
+
+class TestCancelResearch:
+    def test_cancel_returns_status(self):
+        """With FakeLLM completing instantly, cancel may hit 200 or 409."""
+        client = _make_client()
+        create_resp = client.post("/api/v1/research", json={"question": "Cancel me please"})
+        job_id = create_resp.json()["id"]
+
+        resp = client.post(f"/api/v1/research/{job_id}/cancel")
+        assert resp.status_code in (200, 409)
+
+    def test_404_for_unknown_id(self):
+        client = _make_client()
+        resp = client.post("/api/v1/research/nonexistent-id/cancel")
+        assert resp.status_code == 404
+
+    def test_409_for_completed_job(self):
+        client = _make_client()
+        create_resp = client.post("/api/v1/research", json={"question": "What is deep learning?"})
+        job_id = create_resp.json()["id"]
+
+        time.sleep(0.3)
+
+        resp = client.post(f"/api/v1/research/{job_id}/cancel")
+        assert resp.status_code == 409
