@@ -8,17 +8,15 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends gcc libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-COPY pyproject.toml ./
-
-# Install production dependencies into a virtual‑env we can copy cleanly
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
-RUN pip install --no-cache-dir .
 
-# Copy source and install the project itself (editable not needed in prod)
+# Copy everything needed to install
+COPY pyproject.toml ./
 COPY src/ src/
 COPY alembic/ alembic/
 COPY alembic.ini ./
+
 RUN pip install --no-cache-dir .
 
 
