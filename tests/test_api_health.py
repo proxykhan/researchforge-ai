@@ -4,6 +4,7 @@ from fastapi.testclient import TestClient
 
 from researchforge import __version__
 from researchforge.api.app import create_app
+from researchforge.config import Settings
 from researchforge.integrations.registry import ProviderRegistry
 
 from .conftest import FakeLLM
@@ -11,6 +12,7 @@ from .conftest import FakeLLM
 
 def _make_client() -> TestClient:
     app = create_app(
+        settings=Settings(auth_enabled=False),
         llm=FakeLLM(responses=[]),
         registry=ProviderRegistry(providers=[]),
     )
@@ -30,4 +32,6 @@ class TestHealth:
         client = _make_client()
         resp = client.get("/api/v1/ready")
         assert resp.status_code == 200
-        assert resp.json()["status"] == "ok"
+        data = resp.json()
+        assert data["status"] == "ok"
+        assert data["redis"] is False

@@ -113,3 +113,11 @@ class ErrorResponse(BaseModel):
 class HealthResponse(BaseModel):
     status: str = "ok"
     version: str
+
+
+class ReadyResponse(BaseModel):
+    """Readiness check — reports external dependency status."""
+
+    status: str = "ok"
+    version: str
+    redis: bool = False

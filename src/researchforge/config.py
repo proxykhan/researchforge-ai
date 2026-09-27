@@ -19,6 +19,7 @@ class Settings:
 
     database_url: str = ""
     redis_url: str = ""
+    auth_enabled: bool = True
 
     @property
     def is_production(self) -> bool:
@@ -39,4 +40,5 @@ def load_settings() -> Settings:
         llm_model=os.getenv("LLM_MODEL", "claude-sonnet-5"),
         database_url=os.getenv("DATABASE_URL", ""),
         redis_url=os.getenv("REDIS_URL", ""),
+        auth_enabled=os.getenv("AUTH_ENABLED", "true").lower() == "true",
     )

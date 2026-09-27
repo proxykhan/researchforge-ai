@@ -10,6 +10,7 @@ from researchforge.integrations.models import Author, PaperResult
 from researchforge.integrations.registry import ProviderRegistry
 from researchforge.llm.base import LLMProvider
 from researchforge.llm.models import LLMConfig, LLMResponse, Message
+from researchforge.repositories.memory import InMemoryResearchRepository
 from researchforge.services.research import ResearchService
 from researchforge.workers.manager import JobManager
 
@@ -75,37 +76,38 @@ def _make_service(
     registry.register(provider)  # type: ignore[arg-type]
     manager = JobManager()
     manager.start()
-    return ResearchService(llm=llm, registry=registry, job_manager=manager)
+    repo = InMemoryResearchRepository()
+    return ResearchService(llm=llm, registry=registry, repository=repo, job_manager=manager)
 
 
 class TestCreateJob:
     async def test_returns_summary_with_queued_status(self):
         service = _make_service()
-        summary = service.create_job("What is RAG?")
+        summary = await service.create_job("What is RAG?")
         assert summary.question == "What is RAG?"
         assert summary.status == ResearchStatus.QUEUED
         assert summary.id
 
     async def test_job_is_retrievable(self):
         service = _make_service()
-        summary = service.create_job("What is RAG?")
-        detail = service.get_job(summary.id)
+        summary = await service.create_job("What is RAG?")
+        detail = await service.get_job(summary.id)
         assert detail is not None
         assert detail.id == summary.id
 
 
 class TestGetJob:
-    def test_returns_none_for_unknown_id(self):
+    async def test_returns_none_for_unknown_id(self):
         service = _make_service()
-        assert service.get_job("nonexistent") is None
+        assert await service.get_job("nonexistent") is None
 
     async def test_completed_job_has_results(self):
         service = _make_service()
-        summary = service.create_job("What is RAG?")
+        summary = await service.create_job("What is RAG?")
 
         await asyncio.sleep(0.3)
 
-        detail = service.get_job(summary.id)
+        detail = await service.get_job(summary.id)
         assert detail is not None
         assert detail.status == ResearchStatus.COMPLETED
         assert detail.synthesis is not None
@@ -114,30 +116,30 @@ class TestGetJob:
 
 
 class TestGetStatus:
-    def test_returns_none_for_unknown_id(self):
+    async def test_returns_none_for_unknown_id(self):
         service = _make_service()
-        assert service.get_status("nonexistent") is None
+        assert await service.get_status("nonexistent") is None
 
     async def test_returns_status_for_known_job(self):
         service = _make_service()
-        summary = service.create_job("test question")
-        status = service.get_status(summary.id)
+        summary = await service.create_job("test question")
+        status = await service.get_status(summary.id)
         assert status is not None
         assert status.id == summary.id
 
 
 class TestGetSources:
-    def test_returns_none_for_unknown_id(self):
+    async def test_returns_none_for_unknown_id(self):
         service = _make_service()
-        assert service.get_sources("nonexistent") is None
+        assert await service.get_sources("nonexistent") is None
 
     async def test_returns_papers_after_completion(self):
         service = _make_service()
-        summary = service.create_job("What is RAG?")
+        summary = await service.create_job("What is RAG?")
 
         await asyncio.sleep(0.3)
 
-        sources = service.get_sources(summary.id)
+        sources = await service.get_sources(summary.id)
         assert sources is not None
         assert len(sources.papers) > 0
         assert sources.papers[0].title == "Service Test Paper"
@@ -159,28 +161,31 @@ class TestFailedJob:
         registry = ProviderRegistry(providers=[])
         manager = JobManager()
         manager.start()
-        service = ResearchService(llm=ExplodingLLM(), registry=registry, job_manager=manager)
+        repo = InMemoryResearchRepository()
+        service = ResearchService(
+            llm=ExplodingLLM(), registry=registry, repository=repo, job_manager=manager
+        )
 
-        summary = service.create_job("Will this fail?")
+        summary = await service.create_job("Will this fail?")
         await asyncio.sleep(0.3)
 
-        detail = service.get_job(summary.id)
+        detail = await service.get_job(summary.id)
         assert detail is not None
         assert detail.status == ResearchStatus.FAILED
         assert detail.error is not None
 
 
 class TestListJobs:
-    def test_empty_list(self):
+    async def test_empty_list(self):
         service = _make_service()
-        assert service.list_jobs() == []
+        assert await service.list_jobs() == []
 
     async def test_lists_created_jobs(self):
         service = _make_service()
-        service.create_job("Question one")
-        service.create_job("Question two")
+        await service.create_job("Question one")
+        await service.create_job("Question two")
 
-        jobs = service.list_jobs()
+        jobs = await service.list_jobs()
         assert len(jobs) == 2
         assert jobs[0].question == "Question two"
         assert jobs[1].question == "Question one"
@@ -189,33 +194,33 @@ class TestListJobs:
 class TestCancelJob:
     async def test_cancel_running_job(self):
         service = _make_service()
-        summary = service.create_job("Cancel me")
+        summary = await service.create_job("Cancel me")
 
-        cancelled = service.cancel_job(summary.id)
+        cancelled = await service.cancel_job(summary.id)
         assert cancelled
 
-        detail = service.get_job(summary.id)
+        detail = await service.get_job(summary.id)
         assert detail is not None
         assert detail.status == ResearchStatus.FAILED
         assert detail.error == "Cancelled by user"
 
-    def test_cancel_nonexistent(self):
+    async def test_cancel_nonexistent(self):
         service = _make_service()
-        assert service.cancel_job("nope") is False
+        assert await service.cancel_job("nope") is False
 
 
 class TestGetReport:
-    def test_report_returns_none_for_unknown(self):
+    async def test_report_returns_none_for_unknown(self):
         service = _make_service()
-        assert service.get_report("nope") is None
+        assert await service.get_report("nope") is None
 
     async def test_report_returns_detail_after_completion(self):
         service = _make_service()
-        summary = service.create_job("What is RAG?")
+        summary = await service.create_job("What is RAG?")
 
         await asyncio.sleep(0.3)
 
-        report = service.get_report(summary.id)
+        report = await service.get_report(summary.id)
         assert report is not None
         assert report.synthesis is not None
         assert report.status == ResearchStatus.COMPLETED

@@ -8,8 +8,10 @@ import time
 from fastapi.testclient import TestClient
 
 from researchforge.api.app import create_app
+from researchforge.config import Settings
 from researchforge.integrations.models import Author, PaperResult
 from researchforge.integrations.registry import ProviderRegistry
+from researchforge.repositories.memory import InMemoryResearchRepository
 from researchforge.workers.manager import JobManager
 
 from .conftest import FakeLLM, FakeSearchProvider
@@ -64,7 +66,11 @@ def _make_client(
     registry.register(provider)  # type: ignore[arg-type]
     manager = JobManager()
     manager.start()
-    app = create_app(llm=llm, registry=registry, job_manager=manager)
+    repo = InMemoryResearchRepository()
+    settings = Settings(auth_enabled=False)
+    app = create_app(
+        settings=settings, llm=llm, registry=registry, job_manager=manager, repository=repo
+    )
     return TestClient(app)
 
 
