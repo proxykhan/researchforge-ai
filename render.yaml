@@ -80,5 +80,7 @@ services:
     envVars:
       - key: PORT
         value: "10000"
+      - key: HOSTNAME
+        value: "0.0.0.0"
       - key: NEXT_PUBLIC_API_URL
         value: https://researchforge-api.onrender.com
