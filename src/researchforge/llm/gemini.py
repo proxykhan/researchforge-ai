@@ -12,7 +12,7 @@ from researchforge.llm.base import LLMProvider
 from researchforge.llm.models import LLMConfig, LLMResponse, Message, TokenUsage
 
 DEFAULT_MODEL = "gemini-3.8-flash"
-MAX_RETRIES = 4
+MAX_RETRIES = 6
 RETRY_BASE_DELAY = 5.0
 
 

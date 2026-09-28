@@ -150,9 +150,9 @@ class ResearchService:
                 len(record.papers),
             )
 
-        except Exception:
+        except Exception as exc:
             record.status = ResearchStatus.FAILED
-            record.error = "Research failed unexpectedly"
+            record.error = f"Research failed: {exc}"
             record.completed_at = datetime.now(UTC)
             await self._repo.save(record)
             logger.exception("Research job %s failed", job_id)

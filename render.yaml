@@ -1,0 +1,83 @@
+databases:
+  - name: researchforge-db
+    plan: free
+    databaseName: researchforge
+    user: researchforge
+
+services:
+  - type: redis
+    name: researchforge-redis
+    plan: free
+    maxmemoryPolicy: allkeys-lru
+    ipAllowList: []
+
+  - type: web
+    name: researchforge-api
+    plan: free
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerCommand: uvicorn researchforge.api.app:create_app --factory --host 0.0.0.0 --port 10000
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: PORT
+        value: "10000"
+      - key: APP_ENV
+        value: production
+      - key: APP_LOG_LEVEL
+        value: INFO
+      - key: AUTH_ENABLED
+        value: "false"
+      - key: LLM_PROVIDER
+        value: gemini
+      - key: LLM_MODEL
+        value: gemini-3.8-flash
+      - key: GOOGLE_API_KEY
+        sync: false
+      - key: DATABASE_URL
+        fromDatabase:
+          name: researchforge-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          name: researchforge-redis
+          type: redis
+          property: connectionString
+      - key: CORS_ORIGINS
+        value: https://researchforge-frontend.onrender.com
+
+  - type: worker
+    name: researchforge-worker
+    plan: free
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerCommand: python -m researchforge.workers.run
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: LLM_PROVIDER
+        value: gemini
+      - key: LLM_MODEL
+        value: gemini-3.8-flash
+      - key: GOOGLE_API_KEY
+        sync: false
+      - key: DATABASE_URL
+        fromDatabase:
+          name: researchforge-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          name: researchforge-redis
+          type: redis
+          property: connectionString
+
+  - type: web
+    name: researchforge-frontend
+    plan: free
+    runtime: docker
+    dockerfilePath: ./frontend/Dockerfile
+    dockerCommand: node server.js
+    envVars:
+      - key: PORT
+        value: "10000"
+      - key: NEXT_PUBLIC_API_URL
+        value: https://researchforge-api.onrender.com

@@ -53,7 +53,7 @@ def load_settings() -> Settings:
         log_level=os.getenv("APP_LOG_LEVEL", "INFO"),
         llm_provider=os.getenv("LLM_PROVIDER", "anthropic"),
         llm_model=os.getenv("LLM_MODEL", "claude-sonnet-5"),
-        database_url=os.getenv("DATABASE_URL", ""),
+        database_url=os.getenv("DATABASE_URL", "").replace("postgres://", "postgresql+asyncpg://").replace("postgresql://", "postgresql+asyncpg://"),
         db_pool_size=int(os.getenv("DB_POOL_SIZE", "5")),
         db_max_overflow=int(os.getenv("DB_MAX_OVERFLOW", "10")),
         redis_url=os.getenv("REDIS_URL", ""),
