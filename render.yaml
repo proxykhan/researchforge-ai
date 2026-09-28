@@ -73,10 +73,10 @@ services:
   - type: web
     name: researchforge-frontend
     plan: free
-    runtime: docker
+    runtime: node
     rootDir: ./frontend
-    dockerfilePath: ./Dockerfile
-    dockerCommand: node server.js
+    buildCommand: npm ci --legacy-peer-deps && npm run build
+    startCommand: node .next/standalone/server.js
     envVars:
       - key: PORT
         value: "10000"
