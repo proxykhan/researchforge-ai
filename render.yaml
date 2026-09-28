@@ -75,8 +75,8 @@ services:
     plan: free
     runtime: node
     rootDir: ./frontend
-    buildCommand: npm ci --legacy-peer-deps && npm run build && cp -r .next/static .next/standalone/.next/static && cp -r public .next/standalone/public
-    startCommand: node start.js
+    buildCommand: npm ci --legacy-peer-deps && npm run build && cp -r .next/static .next/standalone/.next/static && cp -r public .next/standalone/public && sed -i "s/process.env.HOSTNAME || '0.0.0.0'/'0.0.0.0'/" .next/standalone/server.js
+    startCommand: node .next/standalone/server.js
     envVars:
       - key: PORT
         value: "10000"
