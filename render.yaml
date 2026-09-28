@@ -75,6 +75,7 @@ services:
     plan: free
     runtime: docker
     dockerfilePath: ./frontend/Dockerfile
+    dockerContext: ./frontend
     dockerCommand: node server.js
     envVars:
       - key: PORT
