@@ -76,7 +76,7 @@ services:
     runtime: node
     rootDir: ./frontend
     buildCommand: npm ci --legacy-peer-deps && npm run build && cp -r .next/static .next/standalone/.next/static && cp -r public .next/standalone/public
-    startCommand: cd .next/standalone && node server.js
+    startCommand: cd .next/standalone && HOSTNAME=0.0.0.0 node server.js
     envVars:
       - key: PORT
         value: "10000"
