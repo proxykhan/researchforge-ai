@@ -43,7 +43,7 @@ services:
           type: redis
           property: connectionString
       - key: CORS_ORIGINS
-        value: https://researchforge-frontend.onrender.com
+        value: https://researchforge-frontend-l3iy.onrender.com
 
   - type: worker
     name: researchforge-worker
@@ -74,8 +74,8 @@ services:
     name: researchforge-frontend
     plan: free
     runtime: docker
-    dockerfilePath: ./frontend/Dockerfile
-    dockerContext: ./frontend
+    rootDir: ./frontend
+    dockerfilePath: ./Dockerfile
     dockerCommand: node server.js
     envVars:
       - key: PORT
