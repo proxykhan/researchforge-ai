@@ -76,11 +76,9 @@ services:
     runtime: node
     rootDir: ./frontend
     buildCommand: npm ci --legacy-peer-deps && npm run build && cp -r .next/static .next/standalone/.next/static && cp -r public .next/standalone/public
-    startCommand: cd .next/standalone && HOSTNAME=0.0.0.0 node server.js
+    startCommand: node start.js
     envVars:
       - key: PORT
         value: "10000"
-      - key: HOSTNAME
-        value: "0.0.0.0"
       - key: NEXT_PUBLIC_API_URL
         value: https://researchforge-api.onrender.com
