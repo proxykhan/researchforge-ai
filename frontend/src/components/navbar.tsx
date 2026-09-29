@@ -23,7 +23,7 @@ export function Navbar() {
           </span>
         </Link>
 
-        <nav className="flex items-center gap-8">
+        <nav className="flex items-center gap-4 sm:gap-8">
           {NAV_LINKS.map(({ href, label }) => {
             const active =
               href === "/" ? pathname === "/" : pathname.startsWith(href);
@@ -31,7 +31,7 @@ export function Navbar() {
               <Link
                 key={href}
                 href={href}
-                className={`text-sm font-medium transition-colors ${
+                className={`hidden text-sm font-medium transition-colors sm:block ${
                   active
                     ? "text-accent"
                     : "text-muted hover:text-foreground"
@@ -43,7 +43,7 @@ export function Navbar() {
           })}
           <Link
             href="/research/new"
-            className="rounded-full bg-accent px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-hover"
+            className="rounded-full bg-accent px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-hover sm:px-5"
           >
             New Research
           </Link>
