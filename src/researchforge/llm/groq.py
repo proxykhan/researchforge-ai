@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import os
+import re
+import time
 
 import httpx
 
@@ -11,9 +13,14 @@ from researchforge.llm.base import LLMProvider
 from researchforge.llm.models import LLMConfig, LLMResponse, Message, TokenUsage
 
 DEFAULT_MODEL = "openai/gpt-oss-120b"
-MAX_RETRIES = 4
+MAX_RETRIES = 10
 RETRY_BASE_DELAY = 2.0
 API_URL = "https://api.groq.com/openai/v1/chat/completions"
+FREE_TIER_MAX_TOKENS = 1024
+FREE_TIER_TPM = 8000
+MIN_REQUEST_INTERVAL = 12.0
+
+_RETRY_AFTER_RE = re.compile(r"try again in (\d+(?:\.\d+)?)s")
 
 
 class GroqProvider(LLMProvider):
@@ -26,6 +33,7 @@ class GroqProvider(LLMProvider):
     ) -> None:
         self._api_key = api_key or os.getenv("GROQ_API_KEY", "")
         self._default_model = default_model
+        self._last_request_time: float = 0.0
 
     @property
     def name(self) -> str:
@@ -37,7 +45,13 @@ class GroqProvider(LLMProvider):
         config: LLMConfig | None = None,
     ) -> LLMResponse:
         cfg = config or LLMConfig(model=self._default_model)
-        model = cfg.model if cfg.model not in ("claude-sonnet-5", "gemini-3.8-flash", "llama-3.3-70b-versatile") else self._default_model
+        model = (
+            cfg.model
+            if cfg.model not in ("claude-sonnet-5", "gemini-3.8-flash", "llama-3.3-70b-versatile")
+            else self._default_model
+        )
+
+        capped_max_tokens = min(cfg.max_tokens, FREE_TIER_MAX_TOKENS)
 
         openai_messages: list[dict[str, str]] = []
         for m in messages:
@@ -49,7 +63,7 @@ class GroqProvider(LLMProvider):
         payload: dict = {
             "model": model,
             "messages": openai_messages,
-            "max_tokens": cfg.max_tokens,
+            "max_tokens": capped_max_tokens,
             "temperature": cfg.temperature,
         }
         if cfg.stop_sequences:
@@ -60,14 +74,19 @@ class GroqProvider(LLMProvider):
             "Content-Type": "application/json",
         }
 
+        elapsed = time.monotonic() - self._last_request_time
+        if elapsed < MIN_REQUEST_INTERVAL:
+            await asyncio.sleep(MIN_REQUEST_INTERVAL - elapsed)
+
         last_error: Exception | None = None
         for attempt in range(MAX_RETRIES):
             try:
+                self._last_request_time = time.monotonic()
                 async with httpx.AsyncClient(timeout=120.0) as client:
                     resp = await client.post(API_URL, json=payload, headers=headers)
                     if resp.status_code == 429:
                         last_error = Exception(f"429 Rate limited: {resp.text}")
-                        delay = RETRY_BASE_DELAY * (2 ** attempt)
+                        delay = _parse_retry_after(resp.text, RETRY_BASE_DELAY * (2 ** attempt))
                         await asyncio.sleep(delay)
                         continue
                     resp.raise_for_status()
@@ -96,3 +115,11 @@ class GroqProvider(LLMProvider):
             ),
             stop_reason=choice.get("finish_reason"),
         )
+
+
+def _parse_retry_after(body: str, fallback: float) -> float:
+    """Extract wait time from Groq's rate-limit error message."""
+    match = _RETRY_AFTER_RE.search(body)
+    if match:
+        return float(match.group(1)) + 1.0
+    return fallback
