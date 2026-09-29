@@ -75,7 +75,11 @@ def create_app(
     )
 
     if llm is None:
-        if settings.llm_provider == "gemini":
+        if settings.llm_provider == "groq":
+            from researchforge.llm.groq import GroqProvider
+
+            llm = GroqProvider(default_model=settings.llm_model)
+        elif settings.llm_provider == "gemini":
             from researchforge.llm.gemini import GeminiProvider
 
             llm = GeminiProvider(default_model=settings.llm_model)

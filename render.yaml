@@ -28,10 +28,10 @@ services:
       - key: AUTH_ENABLED
         value: "false"
       - key: LLM_PROVIDER
-        value: gemini
+        value: groq
       - key: LLM_MODEL
-        value: gemini-3.8-flash
-      - key: GOOGLE_API_KEY
+        value: llama-3.3-70b-versatile
+      - key: GROQ_API_KEY
         sync: false
       - key: DATABASE_URL
         fromDatabase:
@@ -55,10 +55,10 @@ services:
       - key: APP_ENV
         value: production
       - key: LLM_PROVIDER
-        value: gemini
+        value: groq
       - key: LLM_MODEL
-        value: gemini-3.8-flash
-      - key: GOOGLE_API_KEY
+        value: llama-3.3-70b-versatile
+      - key: GROQ_API_KEY
         sync: false
       - key: DATABASE_URL
         fromDatabase:
