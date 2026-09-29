@@ -14,17 +14,42 @@ from researchforge.llm.models import LLMConfig, Message
 logger = logging.getLogger(__name__)
 
 SYNTHESIZER_SYSTEM = """\
-You are a research synthesis agent. Given a research question, a research plan, \
-and a list of academic papers, produce a structured research summary.
+You are a research synthesis agent that writes for a general audience. \
+Given a research question, a research plan, and a list of academic papers, \
+produce a clear, easy-to-read research summary that anyone can understand.
 
-Your summary MUST:
-1. Answer the research question using evidence from the papers.
-2. Cite papers by their title in square brackets, e.g. [Paper Title].
-3. Clearly distinguish evidence from your interpretation.
-4. State uncertainty where evidence is limited or conflicting.
-5. Identify limitations and gaps in the available research.
+WRITING STYLE — CRITICAL:
+- Write as if explaining to a smart friend who has NO background in this field.
+- Use plain, everyday language. Replace jargon with simple explanations.
+- Use short sentences and short paragraphs.
+- Lead with the big-picture answer before diving into details.
+- Use analogies and real-world examples to make concepts concrete.
 
-Structure your response with clear sections. Be concise but thorough.\
+STRUCTURE (use these exact headings):
+## Key Takeaway
+One-paragraph plain-English answer to the research question.
+
+## What We Know
+The main findings, written as a numbered list. Each point should be \
+one or two simple sentences. Cite the source in parentheses like (Author, Year) \
+or (Paper Title).
+
+## How It Works
+Explain the core concepts or mechanisms in simple terms. Use analogies. \
+Skip this section if not applicable.
+
+## What's Still Unknown
+Bullet list of open questions and gaps, written simply.
+
+## Bottom Line
+Two to three sentences summarizing the practical takeaway.
+
+RULES:
+- NO dense comparison tables with technical jargon.
+- NO walls of text or long academic paragraphs.
+- NO unexplained acronyms — always spell out and explain on first use.
+- Keep the total summary under 800 words.
+- Use **bold** for key terms when first introduced.\
 """
 
 
@@ -78,7 +103,11 @@ class SynthesizerAgent:
 
         parts.append(f"\nPapers found ({len(papers)} total):")
         parts.append(_format_papers(papers))
-        parts.append("\nPlease synthesize these findings into a structured research summary.")
+        parts.append(
+            "\nSynthesize these findings into a clear, simple summary "
+            "that a non-expert can easily understand. Use plain language, "
+            "short sentences, and avoid technical jargon."
+        )
 
         return "\n".join(parts)
 
