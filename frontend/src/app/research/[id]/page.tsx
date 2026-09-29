@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
+import { Markdown } from "@/components/markdown";
 import { StagePipeline } from "@/components/stage-pipeline";
 import { StatusBadge } from "@/components/status-badge";
 import { api } from "@/lib/api";
@@ -108,10 +109,13 @@ export default function ResearchProgressPage() {
             Synthesis Preview
           </h2>
           <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-            <p className="whitespace-pre-wrap text-sm leading-relaxed text-zinc-700 dark:text-zinc-300">
-              {research.synthesis.slice(0, 500)}
-              {research.synthesis.length > 500 && "..."}
-            </p>
+            <Markdown
+              content={
+                research.synthesis.length > 500
+                  ? research.synthesis.slice(0, 500) + "..."
+                  : research.synthesis
+              }
+            />
           </div>
         </section>
       )}

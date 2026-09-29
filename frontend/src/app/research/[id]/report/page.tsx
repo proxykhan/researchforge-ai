@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { Markdown } from "@/components/markdown";
 import { StatusBadge } from "@/components/status-badge";
 import { api } from "@/lib/api";
 import type { ResearchDetail } from "@/lib/types";
@@ -69,9 +70,7 @@ export default function ResearchReportPage() {
       {report.synthesis ? (
         <article className="prose prose-zinc max-w-none dark:prose-invert">
           <div className="rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
-            <div className="whitespace-pre-wrap text-sm leading-relaxed text-zinc-700 dark:text-zinc-300">
-              {report.synthesis}
-            </div>
+            <Markdown content={report.synthesis} />
           </div>
         </article>
       ) : (
