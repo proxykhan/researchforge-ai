@@ -10,7 +10,7 @@ import httpx
 from researchforge.llm.base import LLMProvider
 from researchforge.llm.models import LLMConfig, LLMResponse, Message, TokenUsage
 
-DEFAULT_MODEL = "llama-3.3-70b-versatile"
+DEFAULT_MODEL = "openai/gpt-oss-120b"
 MAX_RETRIES = 4
 RETRY_BASE_DELAY = 2.0
 API_URL = "https://api.groq.com/openai/v1/chat/completions"
@@ -37,7 +37,7 @@ class GroqProvider(LLMProvider):
         config: LLMConfig | None = None,
     ) -> LLMResponse:
         cfg = config or LLMConfig(model=self._default_model)
-        model = cfg.model if cfg.model not in ("claude-sonnet-5", "gemini-3.8-flash") else self._default_model
+        model = cfg.model if cfg.model not in ("claude-sonnet-5", "gemini-3.8-flash", "llama-3.3-70b-versatile") else self._default_model
 
         openai_messages: list[dict[str, str]] = []
         for m in messages:
