@@ -6,7 +6,7 @@ export function StagePipeline({ current }: { current: ResearchStatus }) {
   const isFailed = current === "failed";
 
   return (
-    <div className="flex items-center gap-1 overflow-x-auto py-2">
+    <div className="flex items-center gap-1.5 overflow-x-auto py-1">
       {STAGE_ORDER.map((stage, idx) => {
         let state: "done" | "active" | "pending" = "pending";
         if (isFailed) {
@@ -18,23 +18,21 @@ export function StagePipeline({ current }: { current: ResearchStatus }) {
         }
 
         return (
-          <div key={stage} className="flex items-center gap-1">
+          <div key={stage} className="flex items-center gap-1.5">
             {idx > 0 && (
               <div
-                className={`h-0.5 w-4 ${
-                  state === "pending"
-                    ? "bg-zinc-200 dark:bg-zinc-700"
-                    : "bg-blue-500"
+                className={`h-0.5 w-5 rounded ${
+                  state === "pending" ? "bg-border" : "bg-accent"
                 }`}
               />
             )}
             <div
-              className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium whitespace-nowrap ${
+              className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-all ${
                 state === "active"
-                  ? "bg-blue-600 text-white ring-2 ring-blue-300 dark:ring-blue-800"
+                  ? "bg-accent text-white shadow-sm"
                   : state === "done"
-                    ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
-                    : "bg-zinc-100 text-zinc-400 dark:bg-zinc-800 dark:text-zinc-500"
+                    ? "bg-accent/10 text-accent"
+                    : "bg-gray-100 text-muted"
               }`}
             >
               {state === "done" && <span>&#10003;</span>}

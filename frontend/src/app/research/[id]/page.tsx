@@ -39,10 +39,14 @@ export default function ResearchProgressPage() {
   }, [research]);
 
   if (error) {
-    return <p className="text-sm text-red-500">{error}</p>;
+    return (
+      <div className="rounded-2xl bg-red-50 px-5 py-4 text-sm text-red-700">
+        {error}
+      </div>
+    );
   }
   if (!research) {
-    return <p className="text-sm text-zinc-400">Loading...</p>;
+    return <div className="py-20 text-center text-muted">Loading...</div>;
   }
 
   const isDone =
@@ -50,26 +54,37 @@ export default function ResearchProgressPage() {
 
   return (
     <>
-      <header className="mb-6">
-        <div className="flex items-start justify-between">
+      {/* Header */}
+      <header className="mb-8">
+        <div className="flex items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
-            <h1 className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
+            <p className="mb-2 text-sm font-semibold text-accent">Research</p>
+            <h1 className="font-display text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
               {research.question}
             </h1>
-            <p className="mt-1 text-xs text-zinc-400">
-              Started {new Date(research.created_at).toLocaleString()}
+            <p className="mt-2 text-sm text-muted">
+              Started{" "}
+              {new Date(research.created_at).toLocaleDateString("en-US", {
+                month: "long",
+                day: "numeric",
+                year: "numeric",
+                hour: "numeric",
+                minute: "2-digit",
+              })}
             </p>
           </div>
           <StatusBadge status={research.status} />
         </div>
       </header>
 
-      {/* Stage pipeline */}
+      {/* Pipeline */}
       <section className="mb-8">
-        <h2 className="mb-2 text-sm font-semibold text-zinc-700 dark:text-zinc-300">
+        <h2 className="mb-3 text-sm font-semibold text-foreground">
           Progress
         </h2>
-        <StagePipeline current={research.status} />
+        <div className="rounded-2xl border border-border bg-accent-light p-4">
+          <StagePipeline current={research.status} />
+        </div>
       </section>
 
       {/* Stats */}
@@ -92,23 +107,19 @@ export default function ResearchProgressPage() {
 
       {/* Error */}
       {research.error && (
-        <div className="mb-6 rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-950/30">
-          <p className="text-sm font-medium text-red-800 dark:text-red-300">
-            Error
-          </p>
-          <p className="mt-1 text-sm text-red-600 dark:text-red-400">
-            {research.error}
-          </p>
+        <div className="mb-8 rounded-2xl bg-red-50 px-5 py-4">
+          <p className="font-semibold text-red-800">Error</p>
+          <p className="mt-1 text-sm text-red-700">{research.error}</p>
         </div>
       )}
 
       {/* Synthesis preview */}
       {research.synthesis && (
-        <section className="mb-6">
-          <h2 className="mb-2 text-sm font-semibold text-zinc-700 dark:text-zinc-300">
+        <section className="mb-8">
+          <h2 className="mb-3 text-sm font-semibold text-foreground">
             Synthesis Preview
           </h2>
-          <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+          <div className="rounded-2xl border border-border bg-white p-6">
             <Markdown
               content={
                 research.synthesis.length > 500
@@ -125,13 +136,13 @@ export default function ResearchProgressPage() {
         <div className="flex gap-3">
           <Link
             href={`/research/${id}/report`}
-            className="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+            className="rounded-full bg-accent px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-accent-hover"
           >
             View Report
           </Link>
           <Link
             href={`/research/${id}/sources`}
-            className="inline-flex items-center rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            className="rounded-full border border-border bg-white px-6 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-accent-light"
           >
             View Sources ({research.paper_count})
           </Link>
@@ -149,13 +160,11 @@ function MiniStat({
   value: string | number;
 }) {
   return (
-    <div className="rounded-lg border border-zinc-200 bg-white px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900">
-      <p className="text-[10px] font-medium uppercase tracking-wide text-zinc-400">
+    <div className="rounded-2xl border border-border bg-accent-light px-4 py-3">
+      <p className="text-xs font-semibold uppercase tracking-wider text-muted">
         {label}
       </p>
-      <p className="mt-0.5 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-        {value}
-      </p>
+      <p className="mt-1 text-lg font-bold text-foreground">{value}</p>
     </div>
   );
 }
