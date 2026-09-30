@@ -30,36 +30,25 @@ from researchforge.services.research import ResearchService
 from researchforge.workers.manager import JobManager
 
 
-def _run_migrations(database_url: str) -> None:
-    """Run Alembic migrations synchronously before the app starts."""
-    import logging
-    import subprocess
-    import sys
-
-    log = logging.getLogger("researchforge.migrations")
-    log.info("Running database migrations...")
-    result = subprocess.run(
-        [sys.executable, "-m", "alembic", "upgrade", "head"],
-        capture_output=True,
-        text=True,
-    )
-    if result.returncode != 0:
-        log.error("Migration failed: %s", result.stderr)
-        raise RuntimeError(f"Alembic migration failed:\n{result.stderr}")
-    log.info("Migrations complete.")
-
-
 def _build_lifespan(
     service: ResearchService,
     redis_client: RedisClient | None = None,
-    database_url: str | None = None,
+    engine: Any | None = None,
 ) -> Callable[..., Any]:
     """Create a lifespan context manager bound to the given service."""
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
-        if database_url:
-            _run_migrations(database_url)
+        if engine is not None:
+            import logging
+
+            from researchforge.database.models import Base
+
+            log = logging.getLogger("researchforge.migrations")
+            log.info("Ensuring database tables exist...")
+            async with engine.begin() as conn:
+                await conn.run_sync(Base.metadata.create_all)
+            log.info("Database tables ready.")
         service.job_manager.start()
         if redis_client is not None:
             await redis_client.connect()
@@ -115,6 +104,7 @@ def create_app(
     manager = job_manager or JobManager()
 
     # ── Database-backed stores when DATABASE_URL is configured ──
+    engine = None
     session_factory = None
     pg_user_store = None
     if settings.database_url:
@@ -157,7 +147,7 @@ def create_app(
         version=__version__,
         docs_url="/api/docs",
         openapi_url="/api/openapi.json",
-        lifespan=_build_lifespan(service, redis_client, settings.database_url),
+        lifespan=_build_lifespan(service, redis_client, engine),
     )
 
     # ── Middleware (outermost first) ─────────────────────────────
