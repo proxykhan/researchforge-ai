@@ -41,9 +41,13 @@ WORKDIR /app
 COPY --from=builder /build/src/ src/
 COPY --from=builder /build/alembic/ alembic/
 COPY --from=builder /build/alembic.ini ./
+COPY entrypoint.sh ./
+RUN sed -i 's/\r$//' entrypoint.sh && chmod +x entrypoint.sh
 
 # Switch to non-root
 USER appuser
+
+ENTRYPOINT ["./entrypoint.sh"]
 
 EXPOSE 8000
 
