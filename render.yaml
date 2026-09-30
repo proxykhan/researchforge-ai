@@ -16,8 +16,7 @@ services:
     plan: free
     runtime: docker
     dockerfilePath: ./Dockerfile
-    dockerCommand: uvicorn researchforge.api.app:create_app --factory --host 0.0.0.0 --port 10000
-    preDeployCommand: alembic upgrade head
+    dockerCommand: sh -c "alembic upgrade head && uvicorn researchforge.api.app:create_app --factory --host 0.0.0.0 --port 10000"
     healthCheckPath: /api/v1/health
     envVars:
       - key: PORT
