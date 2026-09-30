@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 
 from researchforge import __version__
-from researchforge.api.routes import health, research
+from researchforge.api.routes import auth, health, research
 from researchforge.auth.dependencies import AuthDependency, UserLookup
 from researchforge.auth.user_store import InMemoryUserStore
 from researchforge.cache.rate_limiter import RateLimiter
@@ -91,8 +91,29 @@ def create_app(
 
     llm_config = LLMConfig(model=settings.llm_model)
     manager = job_manager or JobManager()
-    repo = repository or InMemoryResearchRepository()
-    lookup = user_lookup or InMemoryUserStore()
+
+    # ── Database-backed stores when DATABASE_URL is configured ──
+    session_factory = None
+    pg_user_store = None
+    if settings.database_url:
+        from researchforge.auth.postgres_user_store import PostgresUserStore
+        from researchforge.database.engine import build_engine, build_session_factory
+        from researchforge.repositories.postgres import PostgresResearchRepository
+
+        engine = build_engine(
+            settings.database_url,
+            pool_size=settings.db_pool_size,
+            max_overflow=settings.db_max_overflow,
+        )
+        session_factory = build_session_factory(engine)
+        pg_user_store = PostgresUserStore(session_factory)
+
+    repo = repository or (
+        PostgresResearchRepository(session_factory)
+        if session_factory is not None
+        else InMemoryResearchRepository()
+    )
+    lookup = user_lookup or (pg_user_store if pg_user_store is not None else InMemoryUserStore())
     service = ResearchService(
         llm=llm,
         registry=registry,
@@ -107,7 +128,7 @@ def create_app(
         redis_client = RedisClient(settings.redis_url)
         rate_limiter = RateLimiter(redis_client)
 
-    auth = AuthDependency(lookup, enabled=settings.auth_enabled)
+    auth_dep = AuthDependency(lookup, enabled=settings.auth_enabled)
 
     app = FastAPI(
         title="ResearchForge AI",
@@ -133,11 +154,13 @@ def create_app(
     )
 
     app.state.research_service = service
-    app.state.auth_dependency = auth
+    app.state.auth_dependency = auth_dep
     app.state.redis_client = redis_client
     app.state.rate_limiter = rate_limiter
+    app.state.user_store = pg_user_store
 
     app.include_router(health.router, prefix="/api/v1")
     app.include_router(research.router, prefix="/api/v1")
+    app.include_router(auth.router, prefix="/api/v1")
 
     return app

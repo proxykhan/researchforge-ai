@@ -3,10 +3,19 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { StatusBadge } from "@/components/status-badge";
+import { AuthGuard } from "@/components/auth-guard";
 import { api } from "@/lib/api";
 import type { ResearchSummary } from "@/lib/types";
 
 export default function DashboardPage() {
+  return (
+    <AuthGuard>
+      <DashboardContent />
+    </AuthGuard>
+  );
+}
+
+function DashboardContent() {
   const [jobs, setJobs] = useState<ResearchSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

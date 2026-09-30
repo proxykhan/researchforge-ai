@@ -1,8 +1,7 @@
 """FastAPI authentication dependencies.
 
-The ``AuthDependency`` extracts the Bearer token from the Authorization
-header, hashes it, and looks up the corresponding user.
-When auth is disabled (development/testing), it returns a sentinel user.
+Supports both JWT tokens and API keys in the Authorization header.
+When auth is disabled (development/testing), returns a sentinel user.
 """
 
 from __future__ import annotations
@@ -14,6 +13,7 @@ from fastapi import HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials
 
 from researchforge.auth.api_key import hash_api_key
+from researchforge.auth.jwt import decode_access_token
 
 
 @dataclass(frozen=True)
@@ -35,8 +35,9 @@ _ANONYMOUS = AuthenticatedUser(id="anonymous", email="", name="anonymous")
 
 
 class AuthDependency:
-    """Callable FastAPI dependency for API key authentication.
+    """Callable FastAPI dependency for Bearer token authentication.
 
+    Tries JWT first; falls back to API key lookup.
     When ``enabled=False``, all requests get the anonymous sentinel user.
     """
 
@@ -55,16 +56,25 @@ class AuthDependency:
         if credentials is None:
             raise HTTPException(
                 status_code=401,
-                detail="Missing API key",
+                detail="Missing credentials",
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
-        key_hash = hash_api_key(credentials.credentials)
-        user = await self._lookup.find_by_key_hash(key_hash)
-        if user is None:
-            raise HTTPException(
-                status_code=401,
-                detail="Invalid API key",
-                headers={"WWW-Authenticate": "Bearer"},
+        token = credentials.credentials
+
+        claims = decode_access_token(token)
+        if claims is not None:
+            return AuthenticatedUser(
+                id=claims["sub"], email=claims["email"], name=claims["name"]
             )
-        return user
+
+        key_hash = hash_api_key(token)
+        user = await self._lookup.find_by_key_hash(key_hash)
+        if user is not None:
+            return user
+
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid or expired token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )

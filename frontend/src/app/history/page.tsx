@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { StatusBadge } from "@/components/status-badge";
+import { AuthGuard } from "@/components/auth-guard";
 import { api } from "@/lib/api";
 import type { ResearchStatus, ResearchSummary } from "@/lib/types";
 
@@ -17,6 +18,14 @@ const STATUS_FILTER_OPTIONS: Array<{
 ];
 
 export default function HistoryPage() {
+  return (
+    <AuthGuard>
+      <HistoryContent />
+    </AuthGuard>
+  );
+}
+
+function HistoryContent() {
   const [jobs, setJobs] = useState<ResearchSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

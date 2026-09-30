@@ -5,10 +5,19 @@ import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Markdown } from "@/components/markdown";
 import { StatusBadge } from "@/components/status-badge";
+import { AuthGuard } from "@/components/auth-guard";
 import { api } from "@/lib/api";
 import type { ResearchDetail } from "@/lib/types";
 
 export default function ResearchReportPage() {
+  return (
+    <AuthGuard>
+      <ResearchReportContent />
+    </AuthGuard>
+  );
+}
+
+function ResearchReportContent() {
   const { id } = useParams<{ id: string }>();
   const [report, setReport] = useState<ResearchDetail | null>(null);
   const [error, setError] = useState<string | null>(null);

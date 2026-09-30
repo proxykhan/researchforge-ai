@@ -2,9 +2,18 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { AuthGuard } from "@/components/auth-guard";
 import { api } from "@/lib/api";
 
 export default function NewResearchPage() {
+  return (
+    <AuthGuard>
+      <NewResearchContent />
+    </AuthGuard>
+  );
+}
+
+function NewResearchContent() {
   const router = useRouter();
   const [question, setQuestion] = useState("");
   const [submitting, setSubmitting] = useState(false);

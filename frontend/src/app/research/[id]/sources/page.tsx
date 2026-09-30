@@ -4,10 +4,19 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { PaperCard } from "@/components/paper-card";
+import { AuthGuard } from "@/components/auth-guard";
 import { api } from "@/lib/api";
 import type { ResearchSourcesResponse } from "@/lib/types";
 
 export default function ResearchSourcesPage() {
+  return (
+    <AuthGuard>
+      <ResearchSourcesContent />
+    </AuthGuard>
+  );
+}
+
+function ResearchSourcesContent() {
   const { id } = useParams<{ id: string }>();
   const [data, setData] = useState<ResearchSourcesResponse | null>(null);
   const [error, setError] = useState<string | null>(null);

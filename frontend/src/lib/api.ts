@@ -14,11 +14,11 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     ...((init?.headers as Record<string, string>) ?? {}),
   };
 
-  const apiKey = typeof window !== "undefined"
-    ? localStorage.getItem("rf_api_key")
+  const token = typeof window !== "undefined"
+    ? localStorage.getItem("rf_token")
     : null;
-  if (apiKey) {
-    headers["Authorization"] = `Bearer ${apiKey}`;
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
   }
 
   const res = await fetch(url, { ...init, headers });
