@@ -18,7 +18,7 @@ RETRY_BASE_DELAY = 2.0
 API_URL = "https://api.groq.com/openai/v1/chat/completions"
 FREE_TIER_MAX_TOKENS = 1024
 FREE_TIER_TPM = 8000
-MIN_REQUEST_INTERVAL = 12.0
+MIN_REQUEST_INTERVAL = 3.0
 
 _RETRY_AFTER_RE = re.compile(r"try again in (\d+(?:\.\d+)?)s")
 

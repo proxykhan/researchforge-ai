@@ -41,6 +41,6 @@ class LLMConfig:
 
     model: str = "claude-sonnet-5"
     max_tokens: int = 4096
-    temperature: float = 1.0
+    temperature: float = 0.3
     system: str | None = None
     stop_sequences: list[str] = field(default_factory=list)

@@ -1,11 +1,16 @@
 """Research agent graph — wires all agents into a LangGraph state graph.
 
-Flow: plan → search → synthesize → fact_check → debate → critic → evaluate
-      ↑                                                    │
-      └──────── (if critic says more research needed) ─────┘
+Flow: plan → search → synthesize → verify_and_debate → critic → evaluate
+      ↑                                                   │
+      └──────── (if critic says more research needed) ────┘
+
+The verify_and_debate node runs fact-checking and debate concurrently
+since they are independent — both need only the synthesis and papers.
 """
 
 from __future__ import annotations
+
+import asyncio
 
 from langgraph.graph import END, StateGraph
 
@@ -47,21 +52,32 @@ def build_research_graph(
     critic = CriticAgent(llm=llm, llm_config=config)
     evaluator = EvaluationAgent(llm=llm, llm_config=config)
 
+    async def verify_and_debate(state: ResearchState) -> ResearchState:
+        fc_result, db_result = await asyncio.gather(
+            fact_checker.run(state),
+            debater.run(state),
+        )
+        merged: ResearchState = {}
+        merged.update(fc_result)
+        merged.update(db_result)
+        return merged
+
     graph = StateGraph(ResearchState)
     graph.add_node("plan_research", traced_agent_node("planner")(planner.run))
     graph.add_node("execute_search", traced_agent_node("researcher")(researcher.run))
     graph.add_node("synthesize", traced_agent_node("synthesizer")(synthesizer.run))
-    graph.add_node("fact_check", traced_agent_node("fact_checker")(fact_checker.run))
-    graph.add_node("debate", traced_agent_node("debate")(debater.run))
+    graph.add_node(
+        "verify_and_debate",
+        traced_agent_node("verify_and_debate")(verify_and_debate),
+    )
     graph.add_node("critic", traced_agent_node("critic")(critic.run))
     graph.add_node("evaluate", traced_agent_node("evaluator")(evaluator.run))
 
     graph.set_entry_point("plan_research")
     graph.add_edge("plan_research", "execute_search")
     graph.add_edge("execute_search", "synthesize")
-    graph.add_edge("synthesize", "fact_check")
-    graph.add_edge("fact_check", "debate")
-    graph.add_edge("debate", "critic")
+    graph.add_edge("synthesize", "verify_and_debate")
+    graph.add_edge("verify_and_debate", "critic")
     graph.add_conditional_edges("critic", _should_continue)
     graph.add_edge("evaluate", END)
 

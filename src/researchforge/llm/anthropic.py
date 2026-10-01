@@ -40,7 +40,7 @@ class AnthropicProvider(LLMProvider):
             for m in messages
         ]
 
-        kwargs: dict[str, object] = {}
+        kwargs: dict[str, object] = {"temperature": cfg.temperature}
         if cfg.system:
             kwargs["system"] = cfg.system
         if cfg.stop_sequences:

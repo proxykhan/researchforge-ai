@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from dataclasses import dataclass, field
@@ -89,8 +90,10 @@ class DebateAgent:
         ]
         context = "\n\n".join(parts)
 
-        support = await self._run_side(context, SUPPORT_SYSTEM)
-        skeptic = await self._run_side(context, SKEPTIC_SYSTEM)
+        support, skeptic = await asyncio.gather(
+            self._run_side(context, SUPPORT_SYSTEM),
+            self._run_side(context, SKEPTIC_SYSTEM),
+        )
         judgment, conclusion = await self._run_judge(context, support, skeptic)
 
         result = DebateResult(

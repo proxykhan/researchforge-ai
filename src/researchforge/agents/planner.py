@@ -20,9 +20,17 @@ structured research plan as JSON with these fields:
 {
   "domain": "the research domain (e.g. 'machine learning', 'neuroscience')",
   "subtasks": ["2-4 focused sub-questions that together answer the main question"],
-  "search_queries": ["2-4 search queries optimized for academic search engines"],
+  "search_queries": ["2-4 search queries for academic databases"],
   "completion_criteria": "a sentence describing what a good answer looks like"
 }
+
+QUERY GUIDELINES:
+- Use specific, narrow search terms with domain-specific terminology. \
+Prefer "transformer attention mechanism NLP" over "deep learning".
+- Each query should target a different aspect of the research question.
+- Include key technical concepts, method names, or relevant author names.
+- Optimize for precision over recall — 5 highly relevant papers are better \
+than 50 loosely related ones.
 
 Return ONLY valid JSON, no other text.\
 """
