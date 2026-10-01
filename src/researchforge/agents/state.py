@@ -1,12 +1,13 @@
 """Shared state definition for the research agent graph."""
 
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
-from typing import Awaitable, Callable, TypedDict
+from typing import TypedDict
 
 from researchforge.api.schemas import ResearchStatus
+from researchforge.integrations.models import PaperResult
 
 StatusCallback = Callable[[ResearchStatus], Awaitable[None]]
-from researchforge.integrations.models import PaperResult
 
 
 @dataclass(frozen=True)

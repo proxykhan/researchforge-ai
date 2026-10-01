@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
 from fastapi import APIRouter, HTTPException, Request, Security
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from pydantic import BaseModel, Field
 
 from researchforge.auth.dependencies import AuthenticatedUser
 from researchforge.auth.jwt import create_access_token

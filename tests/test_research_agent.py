@@ -91,7 +91,7 @@ def _make_status_tracker() -> tuple[list[ResearchStatus], ResearchState]:
     """Create a status tracker and a state dict with the callback wired in."""
     statuses: list[ResearchStatus] = []
 
-    def _track(status: ResearchStatus) -> None:
+    async def _track(status: ResearchStatus) -> None:
         statuses.append(status)
 
     state: ResearchState = {"question": "test question", "status_callback": _track}
@@ -828,7 +828,7 @@ class TestBuildResearchGraph:
 
         statuses: list[ResearchStatus] = []
 
-        def _track(status: ResearchStatus) -> None:
+        async def _track(status: ResearchStatus) -> None:
             statuses.append(status)
 
         await compiled.ainvoke({"question": "test", "status_callback": _track})

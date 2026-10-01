@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import jwt
 
@@ -17,8 +17,8 @@ def create_access_token(user_id: str, email: str, name: str) -> str:
         "sub": user_id,
         "email": email,
         "name": name,
-        "exp": datetime.now(timezone.utc) + timedelta(hours=_EXPIRY_HOURS),
-        "iat": datetime.now(timezone.utc),
+        "exp": datetime.now(UTC) + timedelta(hours=_EXPIRY_HOURS),
+        "iat": datetime.now(UTC),
     }
     return jwt.encode(payload, _SECRET, algorithm=_ALGORITHM)
 

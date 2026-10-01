@@ -60,7 +60,7 @@ class GroqProvider(LLMProvider):
         if cfg.system and not any(m["role"] == "system" for m in openai_messages):
             openai_messages.insert(0, {"role": "system", "content": cfg.system})
 
-        payload: dict = {
+        payload: dict[str, object] = {
             "model": model,
             "messages": openai_messages,
             "max_tokens": capped_max_tokens,
