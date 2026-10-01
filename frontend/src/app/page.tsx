@@ -76,7 +76,7 @@ function DashboardContent() {
           <div className="py-12 text-center text-muted">Loading...</div>
         )}
         {error && (
-          <div className="rounded-2xl bg-red-50 px-5 py-4 text-sm text-red-700">
+          <div className="rounded-2xl bg-error-bg px-5 py-4 text-sm text-error-fg">
             {error}
           </div>
         )}

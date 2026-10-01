@@ -59,7 +59,7 @@ export function Markdown({ content }: { content: string }) {
           const isBlock = className?.includes("language-");
           if (isBlock) {
             return (
-              <pre className="mb-4 overflow-x-auto rounded-xl bg-gray-50 p-5">
+              <pre className="mb-4 overflow-x-auto rounded-xl bg-surface p-5">
                 <code className="text-sm text-foreground">{children}</code>
               </pre>
             );

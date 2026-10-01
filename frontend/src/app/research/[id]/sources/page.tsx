@@ -33,7 +33,7 @@ function ResearchSourcesContent() {
 
   if (error) {
     return (
-      <div className="rounded-2xl bg-red-50 px-5 py-4 text-sm text-red-700">
+      <div className="rounded-2xl bg-error-bg px-5 py-4 text-sm text-error-fg">
         {error}
       </div>
     );
@@ -75,7 +75,7 @@ function ResearchSourcesContent() {
             placeholder="Filter by title or author..."
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
-            className="w-full max-w-md rounded-full border border-border bg-white px-5 py-2.5 text-sm text-foreground placeholder:text-muted/60 focus:border-accent focus:ring-2 focus:ring-accent/20 focus:outline-none"
+            className="w-full max-w-md rounded-full border border-border bg-card px-5 py-2.5 text-sm text-foreground placeholder:text-muted/60 focus:border-accent focus:ring-2 focus:ring-accent/20 focus:outline-none"
           />
         </div>
       )}

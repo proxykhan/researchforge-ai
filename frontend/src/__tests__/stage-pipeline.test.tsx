@@ -14,19 +14,19 @@ describe("StagePipeline", () => {
   it("marks earlier stages as done", () => {
     render(<StagePipeline current="researching" />);
     const queued = screen.getByText("Queued").closest("div");
-    expect(queued?.className).toContain("bg-blue-100");
+    expect(queued?.className).toContain("text-accent");
   });
 
   it("marks current stage as active", () => {
     render(<StagePipeline current="researching" />);
     const active = screen.getByText("Researching").closest("div");
-    expect(active?.className).toContain("bg-blue-600");
+    expect(active?.className).toContain("bg-accent");
   });
 
   it("marks later stages as pending", () => {
     render(<StagePipeline current="researching" />);
     const pending = screen.getByText("Evaluating").closest("div");
-    expect(pending?.className).toContain("bg-zinc-100");
+    expect(pending?.className).toContain("bg-surface");
   });
 
   it("shows checkmark for completed stages", () => {

@@ -66,7 +66,7 @@ function NewResearchContent() {
             value={question}
             onChange={(e) => setQuestion(e.target.value)}
             placeholder='e.g., "What are the latest approaches to improving long-context reasoning in large language models?"'
-            className="block w-full rounded-2xl border border-border bg-white px-5 py-4 text-foreground placeholder:text-muted/60 focus:border-accent focus:ring-2 focus:ring-accent/20 focus:outline-none"
+            className="block w-full rounded-2xl border border-border bg-card px-5 py-4 text-foreground placeholder:text-muted/60 focus:border-accent focus:ring-2 focus:ring-accent/20 focus:outline-none"
             minLength={3}
             maxLength={2000}
             required
@@ -77,7 +77,7 @@ function NewResearchContent() {
         </div>
 
         {error && (
-          <div className="rounded-2xl bg-red-50 px-5 py-3 text-sm text-red-700">
+          <div className="rounded-2xl bg-error-bg px-5 py-3 text-sm text-error-fg">
             {error}
           </div>
         )}

@@ -33,7 +33,7 @@ function ResearchReportContent() {
 
   if (error) {
     return (
-      <div className="rounded-2xl bg-red-50 px-5 py-4 text-sm text-red-700">
+      <div className="rounded-2xl bg-error-bg px-5 py-4 text-sm text-error-fg">
         {error}
       </div>
     );
@@ -84,14 +84,14 @@ function ResearchReportContent() {
       </header>
 
       {report.error && (
-        <div className="mb-8 rounded-2xl bg-red-50 px-5 py-4 text-sm text-red-700">
+        <div className="mb-8 rounded-2xl bg-error-bg px-5 py-4 text-sm text-error-fg">
           {report.error}
         </div>
       )}
 
       {report.synthesis ? (
         <article>
-          <div className="rounded-2xl border border-border bg-white p-8">
+          <div className="rounded-2xl border border-border bg-card p-8">
             <Markdown content={report.synthesis} />
           </div>
         </article>
@@ -104,13 +104,13 @@ function ResearchReportContent() {
       <div className="mt-8 flex gap-3">
         <Link
           href={`/research/${id}/sources`}
-          className="rounded-full border border-border bg-white px-6 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-accent-light"
+          className="rounded-full border border-border bg-card px-6 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-accent-light"
         >
           View Sources ({report.paper_count})
         </Link>
         <Link
           href={`/research/${id}`}
-          className="rounded-full border border-border bg-white px-6 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-accent-light"
+          className="rounded-full border border-border bg-card px-6 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-accent-light"
         >
           Back to Progress
         </Link>

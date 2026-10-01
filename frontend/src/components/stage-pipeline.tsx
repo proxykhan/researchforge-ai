@@ -32,7 +32,7 @@ export function StagePipeline({ current }: { current: ResearchStatus }) {
                   ? "bg-accent text-white shadow-sm"
                   : state === "done"
                     ? "bg-accent/10 text-accent"
-                    : "bg-gray-100 text-muted"
+                    : "bg-surface text-muted"
               }`}
             >
               {state === "done" && <span>&#10003;</span>}

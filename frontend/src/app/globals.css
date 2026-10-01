@@ -10,6 +10,41 @@
   --border: #e5e7eb;
   --card: #ffffff;
   --card-hover: #f8faff;
+  --surface: #f3f4f6;
+  --error-bg: #fef2f2;
+  --error-fg: #b91c1c;
+}
+
+:root[data-theme="dark"] {
+  --background: #0c0c1d;
+  --foreground: #e2e8f0;
+  --accent: #6366f1;
+  --accent-light: #1e1b4b;
+  --accent-hover: #818cf8;
+  --muted: #94a3b8;
+  --border: #1e293b;
+  --card: #151528;
+  --card-hover: #1a1a35;
+  --surface: #1a1a30;
+  --error-bg: rgba(239, 68, 68, 0.12);
+  --error-fg: #f87171;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --background: #0c0c1d;
+    --foreground: #e2e8f0;
+    --accent: #6366f1;
+    --accent-light: #1e1b4b;
+    --accent-hover: #818cf8;
+    --muted: #94a3b8;
+    --border: #1e293b;
+    --card: #151528;
+    --card-hover: #1a1a35;
+    --surface: #1a1a30;
+    --error-bg: rgba(239, 68, 68, 0.12);
+    --error-fg: #f87171;
+  }
 }
 
 @theme inline {
@@ -22,6 +57,9 @@
   --color-border: var(--border);
   --color-card: var(--card);
   --color-card-hover: var(--card-hover);
+  --color-surface: var(--surface);
+  --color-error-bg: var(--error-bg);
+  --color-error-fg: var(--error-fg);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
   --font-display: var(--font-source-serif);
@@ -31,4 +69,42 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans, ui-sans-serif, system-ui, sans-serif);
+}
+
+/* Status badge colors — light mode */
+.badge-queued { background: #f3f4f6; color: #4b5563; }
+.badge-planning { background: #fffbeb; color: #b45309; }
+.badge-researching { background: #eff6ff; color: #1d4ed8; }
+.badge-synthesizing { background: #faf5ff; color: #7e22ce; }
+.badge-verifying { background: #ecfeff; color: #0e7490; }
+.badge-debating { background: #fff7ed; color: #c2410c; }
+.badge-critiquing { background: #fff1f2; color: #be123c; }
+.badge-evaluating { background: #eef2ff; color: #4338ca; }
+.badge-completed { background: #f0fdf4; color: #15803d; }
+.badge-failed { background: #fef2f2; color: #b91c1c; }
+
+/* Status badge colors — dark mode (explicit) */
+:root[data-theme="dark"] .badge-queued { background: rgba(148,163,184,0.12); color: #94a3b8; }
+:root[data-theme="dark"] .badge-planning { background: rgba(245,158,11,0.12); color: #fbbf24; }
+:root[data-theme="dark"] .badge-researching { background: rgba(59,130,246,0.12); color: #60a5fa; }
+:root[data-theme="dark"] .badge-synthesizing { background: rgba(168,85,247,0.12); color: #c084fc; }
+:root[data-theme="dark"] .badge-verifying { background: rgba(6,182,212,0.12); color: #22d3ee; }
+:root[data-theme="dark"] .badge-debating { background: rgba(249,115,22,0.12); color: #fb923c; }
+:root[data-theme="dark"] .badge-critiquing { background: rgba(244,63,94,0.12); color: #fb7185; }
+:root[data-theme="dark"] .badge-evaluating { background: rgba(99,102,241,0.12); color: #a5b4fc; }
+:root[data-theme="dark"] .badge-completed { background: rgba(34,197,94,0.12); color: #4ade80; }
+:root[data-theme="dark"] .badge-failed { background: rgba(239,68,68,0.12); color: #f87171; }
+
+/* Status badge colors — dark mode (system preference) */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .badge-queued { background: rgba(148,163,184,0.12); color: #94a3b8; }
+  :root:not([data-theme="light"]) .badge-planning { background: rgba(245,158,11,0.12); color: #fbbf24; }
+  :root:not([data-theme="light"]) .badge-researching { background: rgba(59,130,246,0.12); color: #60a5fa; }
+  :root:not([data-theme="light"]) .badge-synthesizing { background: rgba(168,85,247,0.12); color: #c084fc; }
+  :root:not([data-theme="light"]) .badge-verifying { background: rgba(6,182,212,0.12); color: #22d3ee; }
+  :root:not([data-theme="light"]) .badge-debating { background: rgba(249,115,22,0.12); color: #fb923c; }
+  :root:not([data-theme="light"]) .badge-critiquing { background: rgba(244,63,94,0.12); color: #fb7185; }
+  :root:not([data-theme="light"]) .badge-evaluating { background: rgba(99,102,241,0.12); color: #a5b4fc; }
+  :root:not([data-theme="light"]) .badge-completed { background: rgba(34,197,94,0.12); color: #4ade80; }
+  :root:not([data-theme="light"]) .badge-failed { background: rgba(239,68,68,0.12); color: #f87171; }
 }

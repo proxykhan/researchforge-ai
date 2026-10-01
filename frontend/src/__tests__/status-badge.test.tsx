@@ -24,12 +24,12 @@ describe("StatusBadge", () => {
   it("applies completed styling", () => {
     render(<StatusBadge status="completed" />);
     const badge = screen.getByText("Completed");
-    expect(badge.className).toContain("bg-green-100");
+    expect(badge.className).toContain("badge-completed");
   });
 
   it("applies failed styling", () => {
     render(<StatusBadge status="failed" />);
     const badge = screen.getByText("Failed");
-    expect(badge.className).toContain("bg-red-100");
+    expect(badge.className).toContain("badge-failed");
   });
 });

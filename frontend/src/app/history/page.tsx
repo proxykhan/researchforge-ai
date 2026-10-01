@@ -74,7 +74,7 @@ function HistoryContent() {
           placeholder="Search questions..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full max-w-sm rounded-full border border-border bg-white px-5 py-2.5 text-sm text-foreground placeholder:text-muted/60 focus:border-accent focus:ring-2 focus:ring-accent/20 focus:outline-none"
+          className="w-full max-w-sm rounded-full border border-border bg-card px-5 py-2.5 text-sm text-foreground placeholder:text-muted/60 focus:border-accent focus:ring-2 focus:ring-accent/20 focus:outline-none"
         />
         <div className="flex gap-2">
           {STATUS_FILTER_OPTIONS.map(({ label, value }) => (
@@ -98,7 +98,7 @@ function HistoryContent() {
         <div className="py-20 text-center text-muted">Loading...</div>
       )}
       {error && (
-        <div className="rounded-2xl bg-red-50 px-5 py-4 text-sm text-red-700">
+        <div className="rounded-2xl bg-error-bg px-5 py-4 text-sm text-error-fg">
           {error}
         </div>
       )}
