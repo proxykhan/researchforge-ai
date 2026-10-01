@@ -54,7 +54,7 @@ class CriticAgent:
     async def run(self, state: ResearchState) -> ResearchState:
         callback = state.get("status_callback")
         if callback:
-            callback(ResearchStatus.CRITIQUING)
+            await callback(ResearchStatus.CRITIQUING)
 
         iteration = state.get("iteration", 0)
         synthesis = state.get("synthesis", "")

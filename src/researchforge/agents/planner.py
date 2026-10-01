@@ -39,7 +39,7 @@ class PlannerAgent:
         question = state["question"]
         callback = state.get("status_callback")
         if callback:
-            callback(ResearchStatus.PLANNING)
+            await callback(ResearchStatus.PLANNING)
 
         config = LLMConfig(
             model=self.llm_config.model,

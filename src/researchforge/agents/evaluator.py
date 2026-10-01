@@ -58,7 +58,7 @@ class EvaluationAgent:
     async def run(self, state: ResearchState) -> ResearchState:
         callback = state.get("status_callback")
         if callback:
-            callback(ResearchStatus.EVALUATING)
+            await callback(ResearchStatus.EVALUATING)
 
         synthesis = state.get("synthesis", "")
         question = state.get("question", "")

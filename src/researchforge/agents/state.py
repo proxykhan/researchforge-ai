@@ -1,9 +1,11 @@
 """Shared state definition for the research agent graph."""
 
 from dataclasses import dataclass, field
-from typing import Protocol, TypedDict
+from typing import Awaitable, Callable, TypedDict
 
 from researchforge.api.schemas import ResearchStatus
+
+StatusCallback = Callable[[ResearchStatus], Awaitable[None]]
 from researchforge.integrations.models import PaperResult
 
 
@@ -64,12 +66,6 @@ class EvaluationResult:
     strengths: list[str] = field(default_factory=list)
     weaknesses: list[str] = field(default_factory=list)
     summary: str = ""
-
-
-class StatusCallback(Protocol):
-    """Called by graph nodes to report progress to the service layer."""
-
-    def __call__(self, status: ResearchStatus) -> None: ...
 
 
 class ResearchState(TypedDict, total=False):

@@ -66,7 +66,7 @@ class SynthesizerAgent:
         plan = state.get("plan")
         callback = state.get("status_callback")
         if callback:
-            callback(ResearchStatus.SYNTHESIZING)
+            await callback(ResearchStatus.SYNTHESIZING)
 
         if not papers:
             return {"synthesis": "No papers were found for this research question."}

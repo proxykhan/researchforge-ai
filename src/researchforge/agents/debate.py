@@ -66,7 +66,7 @@ class DebateAgent:
         question = state.get("question", "")
         callback = state.get("status_callback")
         if callback:
-            callback(ResearchStatus.DEBATING)
+            await callback(ResearchStatus.DEBATING)
 
         if not synthesis:
             return {

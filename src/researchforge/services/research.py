@@ -129,8 +129,9 @@ class ResearchService:
             graph = build_research_graph(self._llm, self._registry, self._llm_config)
             compiled = graph.compile()
 
-            def _update_status(status: ResearchStatus) -> None:
+            async def _update_status(status: ResearchStatus) -> None:
                 record.status = status
+                await self._repo.save(record)
 
             result: ResearchState = await compiled.ainvoke(  # type: ignore[assignment]
                 {"question": record.question, "status_callback": _update_status}

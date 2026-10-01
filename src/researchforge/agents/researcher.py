@@ -24,7 +24,7 @@ class ResearcherAgent:
         queries = state.get("search_queries", [])
         callback = state.get("status_callback")
         if callback:
-            callback(ResearchStatus.RESEARCHING)
+            await callback(ResearchStatus.RESEARCHING)
 
         if not queries:
             return {"papers": [], "error": "No search queries to execute"}

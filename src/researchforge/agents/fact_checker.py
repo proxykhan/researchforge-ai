@@ -52,7 +52,7 @@ class FactCheckerAgent:
         papers = state.get("papers", [])
         callback = state.get("status_callback")
         if callback:
-            callback(ResearchStatus.VERIFYING)
+            await callback(ResearchStatus.VERIFYING)
 
         if not synthesis or not papers:
             return {"claim_verifications": []}
