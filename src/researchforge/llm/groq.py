@@ -86,7 +86,7 @@ class GroqProvider(LLMProvider):
                     resp = await client.post(API_URL, json=payload, headers=headers)
                     if resp.status_code == 429:
                         last_error = Exception(f"429 Rate limited: {resp.text}")
-                        delay = _parse_retry_after(resp.text, RETRY_BASE_DELAY * (2 ** attempt))
+                        delay = _parse_retry_after(resp.text, RETRY_BASE_DELAY * (2**attempt))
                         await asyncio.sleep(delay)
                         continue
                     resp.raise_for_status()
@@ -95,7 +95,7 @@ class GroqProvider(LLMProvider):
             except httpx.HTTPStatusError as exc:
                 if exc.response.status_code >= 500:
                     last_error = exc
-                    delay = RETRY_BASE_DELAY * (2 ** attempt)
+                    delay = RETRY_BASE_DELAY * (2**attempt)
                     await asyncio.sleep(delay)
                     continue
                 raise

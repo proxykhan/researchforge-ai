@@ -64,9 +64,7 @@ class AuthDependency:
 
         claims = decode_access_token(token)
         if claims is not None:
-            return AuthenticatedUser(
-                id=claims["sub"], email=claims["email"], name=claims["name"]
-            )
+            return AuthenticatedUser(id=claims["sub"], email=claims["email"], name=claims["name"])
 
         key_hash = hash_api_key(token)
         user = await self._lookup.find_by_key_hash(key_hash)
