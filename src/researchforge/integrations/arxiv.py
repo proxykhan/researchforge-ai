@@ -66,16 +66,22 @@ _throttle_locks: weakref.WeakKeyDictionary[asyncio.AbstractEventLoop, asyncio.Lo
 _last_request_at = 0.0
 
 
+MAX_AND_TERMS = 4
+
+
 def build_search_query(text: str) -> str:
-    """AND-join terms; a bare ``all:a b c`` is parsed by arXiv as ``all:a OR b OR c``."""
+    """AND-join the leading terms; a bare ``all:a b c`` is parsed as ``all:a OR b OR c``.
+
+    Capped because arXiv returns nothing once five or more terms are all required.
+    """
     terms = [
         t
         for t in re.findall(r"[A-Za-z0-9][A-Za-z0-9\-]*", text)
-        if t.lower() not in _QUERY_STOP_WORDS
+        if t.lower() not in _QUERY_STOP_WORDS and not t.isdigit()
     ]
     if not terms:
         return f"all:{text}"
-    return " AND ".join(f"all:{t}" for t in terms)
+    return " AND ".join(f"all:{t}" for t in terms[:MAX_AND_TERMS])
 
 
 async def _wait_for_slot() -> None:

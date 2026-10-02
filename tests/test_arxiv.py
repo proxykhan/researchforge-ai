@@ -27,6 +27,11 @@ class TestBuildSearchQuery:
             "all:CRISPR-Cas9 AND all:off-target"
         )
 
+    def test_caps_required_terms_and_drops_numbers(self):
+        assert build_search_query("supercomputer power cooling requirements rack 2024") == (
+            "all:supercomputer AND all:power AND all:cooling AND all:requirements"
+        )
+
     def test_falls_back_when_only_stop_words(self):
         assert build_search_query("the of") == "all:the of"
 

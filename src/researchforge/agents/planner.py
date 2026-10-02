@@ -25,12 +25,11 @@ structured research plan as JSON with these fields:
 }
 
 QUERY GUIDELINES:
-- Use specific, narrow search terms with domain-specific terminology. \
-Prefer "transformer attention mechanism NLP" over "deep learning".
+- Each query is 2-5 plain keywords, most important first, e.g. \
+"transformer attention NLP". Prefer specific domain terms over generic ones.
+- No quotes, AND/OR operators, parentheses, years or date ranges, and no \
+full sentences — the search engines treat every word as required.
 - Each query should target a different aspect of the research question.
-- Include key technical concepts, method names, or relevant author names.
-- Optimize for precision over recall — 5 highly relevant papers are better \
-than 50 loosely related ones.
 
 Return ONLY valid JSON, no other text.\
 """

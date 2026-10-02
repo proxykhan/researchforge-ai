@@ -10,7 +10,7 @@ from researchforge.agents.evaluator import EvaluationAgent, _parse_evaluation
 from researchforge.agents.fact_checker import FactCheckerAgent
 from researchforge.agents.planner import PlannerAgent
 from researchforge.agents.research import build_research_graph
-from researchforge.agents.researcher import ResearcherAgent
+from researchforge.agents.researcher import ResearcherAgent, clean_query
 from researchforge.agents.state import (
     CriticResult,
     DebateResult,
@@ -208,6 +208,17 @@ class TestResearcherAgent:
         )
 
         assert len(result["papers"]) == 1
+
+    def test_clean_query_strips_search_syntax(self) -> None:
+        assert (
+            clean_query('"hantavirus" AND favipiravir OR (monoclonal antibody) 2022..2024')
+            == "hantavirus favipiravir monoclonal antibody"
+        )
+        non_breaking_hyphen = chr(0x2011)
+        assert clean_query(f"rack power for 2023{non_breaking_hyphen}2024 supercomputers") == (
+            "rack power for supercomputers"
+        )
+        assert clean_query("sleep and memory") == "sleep and memory"
 
     async def test_deduplicates_same_paper_across_providers(self) -> None:
         copy = PaperResult(

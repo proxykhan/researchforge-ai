@@ -39,7 +39,8 @@ Return JSON:
 
 Guidelines:
 - Only set needs_more_research to true if critical gaps exist.
-- additional_queries should be specific search queries to fill identified gaps.
+- additional_queries should fill identified gaps; each is 2-5 plain keywords \
+(no quotes, AND/OR, years, or full sentences).
 - Be constructive, not adversarial.
 - A completeness_score above 0.7 means the research is adequate.
 - Return ONLY valid JSON, no other text.\

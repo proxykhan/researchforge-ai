@@ -154,6 +154,27 @@ list if none are relevant.\
 
 MAX_SCREEN_CANDIDATES = 30
 
+_BOOLEAN_OPERATORS = frozenset({"AND", "OR", "NOT"})
+_YEAR_TOKEN = re.compile(r"^\d{4}(?:[.\-]+\d{4})?$")
+_UNICODE_DASHES = re.compile(f"[{chr(0x2010)}-{chr(0x2015)}]")
+
+
+def clean_query(text: str) -> str:
+    """Strip search-engine syntax (quotes, boolean operators, years) LLMs tend to emit.
+
+    None of the providers support that syntax; they treat each token as a search
+    word, so ``"x" AND y 2022..2024`` matches far fewer relevant papers than ``x y``.
+    """
+    text = _UNICODE_DASHES.sub("-", text)
+    text = re.sub(r"[\"'()\[\]{}]", " ", text)
+    tokens = [
+        t
+        for t in text.split()
+        if t not in _BOOLEAN_OPERATORS and not _YEAR_TOKEN.match(t.strip(".,;:"))
+    ]
+    cleaned = " ".join(tokens)
+    return cleaned or text.strip()
+
 
 def _dedup_keys(paper: PaperResult) -> set[str]:
     """Keys that identify the same work across providers (source id, DOI, title)."""
@@ -211,7 +232,9 @@ class ResearcherAgent:
 
         responses_per_query = await asyncio.gather(
             *(
-                self.registry.search(SearchQuery(query=q, max_results=self.max_results_per_query))
+                self.registry.search(
+                    SearchQuery(query=clean_query(q), max_results=self.max_results_per_query)
+                )
                 for q in new_queries
             )
         )
