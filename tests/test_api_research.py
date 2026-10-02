@@ -30,6 +30,8 @@ SAMPLE_PAPER = PaperResult(
 def _make_client(
     llm_responses: list[str] | None = None,
     papers: list[PaperResult] | None = None,
+    *,
+    auth_enabled: bool = False,
 ) -> TestClient:
     responses = llm_responses or [
         json.dumps(
@@ -40,11 +42,17 @@ def _make_client(
                 "completion_criteria": "done",
             }
         ),
+        json.dumps({"relevant": [1]}),
         "Summary of research findings on AI.",
         json.dumps([{"claim": "test", "status": "supported", "confidence": 0.9}]),
-        "Support argument.",
-        "Skeptic argument.",
-        json.dumps({"judgment": "balanced", "conclusion": "conclusion"}),
+        json.dumps(
+            {
+                "support_argument": "Support argument.",
+                "skeptic_argument": "Skeptic argument.",
+                "judgment": "balanced",
+                "conclusion": "conclusion",
+            }
+        ),
         json.dumps({"completeness_score": 0.9, "needs_more_research": False, "feedback": "ok"}),
         json.dumps(
             {
@@ -67,7 +75,7 @@ def _make_client(
     manager = JobManager()
     manager.start()
     repo = InMemoryResearchRepository()
-    settings = Settings(auth_enabled=False)
+    settings = Settings(auth_enabled=auth_enabled)
     app = create_app(
         settings=settings, llm=llm, registry=registry, job_manager=manager, repository=repo
     )
@@ -234,3 +242,34 @@ class TestCancelResearch:
 
         resp = client.post(f"/api/v1/research/{job_id}/cancel")
         assert resp.status_code == 409
+
+
+class TestOwnershipIsolation:
+    @staticmethod
+    def _headers(user_id: str) -> dict[str, str]:
+        from researchforge.auth.jwt import create_access_token
+
+        token = create_access_token(user_id, f"{user_id}@example.com", user_id)
+        return {"Authorization": f"Bearer {token}"}
+
+    def test_users_cannot_see_each_others_research(self):
+        client = _make_client(auth_enabled=True)
+        alice, bob = self._headers("alice"), self._headers("bob")
+
+        created = client.post(
+            "/api/v1/research", json={"question": "Alice's private question"}, headers=alice
+        )
+        assert created.status_code == 201
+        job_id = created.json()["id"]
+
+        assert [j["id"] for j in client.get("/api/v1/research", headers=alice).json()] == [job_id]
+        assert client.get("/api/v1/research", headers=bob).json() == []
+        for path in ("", "/status", "/sources", "/report"):
+            assert client.get(f"/api/v1/research/{job_id}{path}", headers=bob).status_code == 404
+            assert client.get(f"/api/v1/research/{job_id}{path}", headers=alice).status_code == 200
+        assert client.post(f"/api/v1/research/{job_id}/cancel", headers=bob).status_code == 404
+
+    def test_requests_without_token_are_rejected(self):
+        client = _make_client(auth_enabled=True)
+
+        assert client.get("/api/v1/research").status_code == 401

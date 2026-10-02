@@ -71,28 +71,38 @@ class ResearchService:
         self._job_manager.submit(job_id, lambda: self._run_research(job_id))
         return _to_summary(record)
 
-    async def list_jobs(self, *, user_id: str | None = None) -> list[ResearchSummary]:
-        """List all research jobs, newest first."""
+    async def list_jobs(self, *, user_id: str) -> list[ResearchSummary]:
+        """List the user's research jobs, newest first."""
         records = await self._repo.list_all(user_id=user_id)
         return [_to_summary(r) for r in records]
 
-    async def get_job(self, job_id: str) -> ResearchDetail | None:
-        """Get full details for a research job."""
+    async def _get_owned(self, job_id: str, user_id: str) -> ResearchJobRecord | None:
+        """Return the job only if it belongs to ``user_id``.
+
+        Another user's job is reported as missing so job IDs cannot be probed.
+        """
         record = await self._repo.get(job_id)
+        if record is None or record.user_id != user_id:
+            return None
+        return record
+
+    async def get_job(self, job_id: str, *, user_id: str) -> ResearchDetail | None:
+        """Get full details for a research job."""
+        record = await self._get_owned(job_id, user_id)
         if record is None:
             return None
         return _to_detail(record)
 
-    async def get_status(self, job_id: str) -> StatusResponse | None:
+    async def get_status(self, job_id: str, *, user_id: str) -> StatusResponse | None:
         """Lightweight status check."""
-        record = await self._repo.get(job_id)
+        record = await self._get_owned(job_id, user_id)
         if record is None:
             return None
         return StatusResponse(id=record.id, status=ResearchStatus(record.status))
 
-    async def get_sources(self, job_id: str) -> ResearchSourcesResponse | None:
+    async def get_sources(self, job_id: str, *, user_id: str) -> ResearchSourcesResponse | None:
         """Get the papers found during research."""
-        record = await self._repo.get(job_id)
+        record = await self._get_owned(job_id, user_id)
         if record is None:
             return None
         return ResearchSourcesResponse(
@@ -100,16 +110,16 @@ class ResearchService:
             papers=[_paper_to_response(p) for p in record.papers],
         )
 
-    async def get_report(self, job_id: str) -> ResearchDetail | None:
+    async def get_report(self, job_id: str, *, user_id: str) -> ResearchDetail | None:
         """Get the final report including evaluation data."""
-        record = await self._repo.get(job_id)
+        record = await self._get_owned(job_id, user_id)
         if record is None:
             return None
         return _to_detail(record)
 
-    async def cancel_job(self, job_id: str) -> bool:
+    async def cancel_job(self, job_id: str, *, user_id: str) -> bool:
         """Cancel a research job. Returns True if cancellation was requested."""
-        record = await self._repo.get(job_id)
+        record = await self._get_owned(job_id, user_id)
         if record is None:
             return False
         cancelled = self._job_manager.cancel(job_id)

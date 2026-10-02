@@ -64,9 +64,9 @@ async def list_research(
     request: Request,
     user: AuthenticatedUser = _auth,
 ) -> list[ResearchSummary]:
-    """List all research jobs, newest first."""
+    """List the current user's research jobs, newest first."""
     service = _get_service(request)
-    return await service.list_jobs()
+    return await service.list_jobs(user_id=user.id)
 
 
 @router.get("/{research_id}", response_model=ResearchDetail)
@@ -77,7 +77,7 @@ async def get_research(
 ) -> ResearchDetail:
     """Get full details for a research job."""
     service = _get_service(request)
-    result = await service.get_job(research_id)
+    result = await service.get_job(research_id, user_id=user.id)
     if result is None:
         raise HTTPException(status_code=404, detail="Research job not found")
     return result
@@ -91,7 +91,7 @@ async def get_research_status(
 ) -> StatusResponse:
     """Lightweight status check for a research job."""
     service = _get_service(request)
-    result = await service.get_status(research_id)
+    result = await service.get_status(research_id, user_id=user.id)
     if result is None:
         raise HTTPException(status_code=404, detail="Research job not found")
     return result
@@ -105,7 +105,7 @@ async def get_research_sources(
 ) -> ResearchSourcesResponse:
     """Get papers found during research."""
     service = _get_service(request)
-    result = await service.get_sources(research_id)
+    result = await service.get_sources(research_id, user_id=user.id)
     if result is None:
         raise HTTPException(status_code=404, detail="Research job not found")
     return result
@@ -119,7 +119,7 @@ async def get_research_report(
 ) -> ResearchDetail:
     """Get the final research report."""
     service = _get_service(request)
-    result = await service.get_report(research_id)
+    result = await service.get_report(research_id, user_id=user.id)
     if result is None:
         raise HTTPException(status_code=404, detail="Research job not found")
     return result
@@ -133,15 +133,15 @@ async def cancel_research(
 ) -> StatusResponse:
     """Cancel a running research job."""
     service = _get_service(request)
-    cancelled = await service.cancel_job(research_id)
+    cancelled = await service.cancel_job(research_id, user_id=user.id)
     if not cancelled:
-        status = await service.get_status(research_id)
+        status = await service.get_status(research_id, user_id=user.id)
         if status is None:
             raise HTTPException(status_code=404, detail="Research job not found")
         raise HTTPException(
             status_code=409,
             detail="Job cannot be cancelled (already completed or failed)",
         )
-    result = await service.get_status(research_id)
+    result = await service.get_status(research_id, user_id=user.id)
     assert result is not None
     return result
