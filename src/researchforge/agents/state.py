@@ -75,6 +75,7 @@ class ResearchState(TypedDict, total=False):
     question: str
     plan: ResearchPlan
     search_queries: list[str]
+    searched_queries: list[str]
     papers: list[PaperResult]
     synthesis: str
     error: str | None

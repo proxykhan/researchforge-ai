@@ -70,6 +70,9 @@ class ResearchProvider(ABC):
                 response = await client.request(method, url, **kwargs)  # type: ignore[arg-type]
 
                 if response.status_code == 429:
+                    last_error = ProviderRateLimitError(self.name, "Rate limited")
+                    if attempt + 1 >= self.max_retries:
+                        break
                     retry_after = float(
                         response.headers.get("Retry-After", BACKOFF_BASE * (2**attempt))
                     )
@@ -81,7 +84,6 @@ class ResearchProvider(ABC):
                         self.max_retries,
                     )
                     await asyncio.sleep(retry_after)
-                    last_error = ProviderRateLimitError(self.name, "Rate limited")
                     continue
 
                 response.raise_for_status()

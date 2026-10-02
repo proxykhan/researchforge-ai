@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 import re
 import time
@@ -21,6 +22,8 @@ FREE_TIER_TPM = 8000
 MIN_REQUEST_INTERVAL = 3.0
 
 _RETRY_AFTER_RE = re.compile(r"try again in (\d+(?:\.\d+)?)s")
+
+logger = logging.getLogger(__name__)
 
 
 class GroqProvider(LLMProvider):
@@ -68,6 +71,11 @@ class GroqProvider(LLMProvider):
         }
         if cfg.stop_sequences:
             payload["stop"] = cfg.stop_sequences
+        if model.startswith("openai/gpt-oss"):
+            # Reasoning tokens share the 1024-token completion cap; at the default effort
+            # they can consume it and truncate the JSON/answer the agents need.
+            payload["reasoning_effort"] = "low"
+            payload["include_reasoning"] = False
 
         headers = {
             "Authorization": f"Bearer {self._api_key}",
@@ -105,6 +113,12 @@ class GroqProvider(LLMProvider):
         choice = data["choices"][0]
         content = choice["message"]["content"] or ""
         usage = data.get("usage", {})
+        if choice.get("finish_reason") == "length":
+            logger.warning(
+                "Groq response truncated at %d completion tokens (model=%s)",
+                capped_max_tokens,
+                model,
+            )
 
         return LLMResponse(
             content=content,

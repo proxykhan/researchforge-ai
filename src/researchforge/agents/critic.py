@@ -14,6 +14,9 @@ from researchforge.llm.models import LLMConfig, Message
 logger = logging.getLogger(__name__)
 
 MAX_ITERATIONS = 2
+# A re-research pass re-runs search, synthesis, verification and debate, so it is
+# reserved for clearly inadequate results rather than any gap the critic notices.
+RETRY_SCORE_THRESHOLD = 0.6
 
 CRITIC_SYSTEM = """\
 You are a research critic agent. Evaluate the completeness and quality of a \
@@ -130,7 +133,7 @@ class CriticAgent:
                 weak = []
 
             needs_more = bool(data.get("needs_more_research", False))
-            if iteration + 1 >= self.max_iterations:
+            if iteration + 1 >= self.max_iterations or score >= RETRY_SCORE_THRESHOLD:
                 needs_more = False
 
             queries = data.get("additional_queries", [])

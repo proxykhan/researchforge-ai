@@ -101,10 +101,14 @@ class SemanticScholarProvider(ResearchProvider):
         self,
         api_key: str | None = None,
         timeout: float = 30.0,
-        max_retries: int = 3,
+        max_retries: int | None = None,
     ) -> None:
+        resolved_key = api_key or os.getenv("SEMANTIC_SCHOLAR_API_KEY")
+        # The keyless shared pool is almost always saturated; retrying only adds latency.
+        if max_retries is None:
+            max_retries = 3 if resolved_key else 1
         super().__init__(timeout=timeout, max_retries=max_retries)
-        self.api_key = api_key or os.getenv("SEMANTIC_SCHOLAR_API_KEY")
+        self.api_key = resolved_key
 
     @property
     def name(self) -> str:

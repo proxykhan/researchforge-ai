@@ -45,7 +45,7 @@ def build_research_graph(
     config = llm_config or LLMConfig()
 
     planner = PlannerAgent(llm=llm, llm_config=config)
-    researcher = ResearcherAgent(registry=registry)
+    researcher = ResearcherAgent(registry=registry, llm=llm, llm_config=config)
     synthesizer = SynthesizerAgent(llm=llm, llm_config=config)
     fact_checker = FactCheckerAgent(llm=llm, llm_config=config)
     debater = DebateAgent(llm=llm, llm_config=config)

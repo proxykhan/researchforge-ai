@@ -51,7 +51,7 @@ class TestLLMConfig:
         config = LLMConfig()
         assert config.model == "claude-sonnet-5"
         assert config.max_tokens == 4096
-        assert config.temperature == 1.0
+        assert config.temperature == 0.3
         assert config.system is None
         assert config.stop_sequences == []
 

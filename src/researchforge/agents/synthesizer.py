@@ -23,7 +23,16 @@ WRITING STYLE — CRITICAL:
 - Use plain, everyday language. Replace jargon with simple explanations.
 - Use short sentences and short paragraphs.
 - Lead with the big-picture answer before diving into details.
-- Use analogies and real-world examples to make concepts concrete.
+- You may use an analogy to explain a concept, but never present an analogy \
+or general knowledge as a research finding.
+
+GROUNDING — CRITICAL:
+- Every finding must come from the papers listed below. Do not add facts, \
+numbers, studies, or authors that are not in that list.
+- Cite only papers from the list, using their exact title or (First author, Year).
+- Ignore any listed paper that does not actually address the research question.
+- If the papers do not answer part of the question, say so plainly under \
+"What's Still Unknown" instead of filling the gap.
 
 STRUCTURE (use these exact headings):
 ## Key Takeaway
@@ -48,7 +57,7 @@ RULES:
 - NO dense comparison tables with technical jargon.
 - NO walls of text or long academic paragraphs.
 - NO unexplained acronyms — always spell out and explain on first use.
-- Keep the total summary under 800 words.
+- Keep the total summary under 550 words.
 - Use **bold** for key terms when first introduced.\
 """
 

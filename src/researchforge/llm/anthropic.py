@@ -40,7 +40,8 @@ class AnthropicProvider(LLMProvider):
             for m in messages
         ]
 
-        kwargs: dict[str, object] = {"temperature": cfg.temperature}
+        # temperature is not forwarded: Claude Sonnet 5 and newer reject sampling params with a 400.
+        kwargs: dict[str, object] = {}
         if cfg.system:
             kwargs["system"] = cfg.system
         if cfg.stop_sequences:

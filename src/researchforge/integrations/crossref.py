@@ -121,13 +121,17 @@ class CrossrefProvider(ResearchProvider):
         params["sort"] = sort
         params["order"] = "desc"
 
-        filters: list[str] = []
+        # Without a type filter Crossref returns grants, datasets and peer-review records.
+        filters: list[str] = [
+            "type:journal-article",
+            "type:proceedings-article",
+            "type:posted-content",
+        ]
         if query.year_from:
             filters.append(f"from-pub-date:{query.year_from}")
         if query.year_to:
             filters.append(f"until-pub-date:{query.year_to}")
-        if filters:
-            params["filter"] = ",".join(filters)
+        params["filter"] = ",".join(filters)
 
         headers = {"User-Agent": USER_AGENT}
 

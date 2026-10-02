@@ -7,7 +7,11 @@ Rate limit: no more than 1 request every 3 seconds.
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
+import re
+import time
+import weakref
 import xml.etree.ElementTree as ET
 from datetime import date
 
@@ -25,6 +29,64 @@ ARXIV_API_URL = "https://export.arxiv.org/api/query"
 
 ATOM_NS = "http://www.w3.org/2005/Atom"
 ARXIV_NS = "http://arxiv.org/schemas/atom"
+
+MIN_REQUEST_INTERVAL = 3.0
+_QUERY_STOP_WORDS = frozenset(
+    {
+        "a",
+        "an",
+        "and",
+        "as",
+        "at",
+        "by",
+        "during",
+        "for",
+        "from",
+        "in",
+        "of",
+        "on",
+        "or",
+        "the",
+        "to",
+        "vs",
+        "with",
+        "without",
+        "how",
+        "what",
+        "does",
+        "do",
+        "is",
+        "are",
+    }
+)
+
+_throttle_locks: weakref.WeakKeyDictionary[asyncio.AbstractEventLoop, asyncio.Lock] = (
+    weakref.WeakKeyDictionary()
+)
+_last_request_at = 0.0
+
+
+def build_search_query(text: str) -> str:
+    """AND-join terms; a bare ``all:a b c`` is parsed by arXiv as ``all:a OR b OR c``."""
+    terms = [
+        t
+        for t in re.findall(r"[A-Za-z0-9][A-Za-z0-9\-]*", text)
+        if t.lower() not in _QUERY_STOP_WORDS
+    ]
+    if not terms:
+        return f"all:{text}"
+    return " AND ".join(f"all:{t}" for t in terms)
+
+
+async def _wait_for_slot() -> None:
+    global _last_request_at
+    loop = asyncio.get_running_loop()
+    lock = _throttle_locks.setdefault(loop, asyncio.Lock())
+    async with lock:
+        wait = MIN_REQUEST_INTERVAL - (time.monotonic() - _last_request_at)
+        if wait > 0:
+            await asyncio.sleep(wait)
+        _last_request_at = time.monotonic()
 
 
 def _text(element: ET.Element, tag: str, ns: str = ATOM_NS) -> str:
@@ -100,13 +162,14 @@ class ArxivProvider(ResearchProvider):
         sort_by = sort_map.get(query.sort_by, "relevance")
 
         params: dict[str, str | int] = {
-            "search_query": f"all:{query.query}",
+            "search_query": build_search_query(query.query),
             "start": 0,
             "max_results": min(query.max_results, 50),
             "sortBy": sort_by,
             "sortOrder": "descending",
         }
 
+        await _wait_for_slot()
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             response = await self._request_with_retry(client, "GET", ARXIV_API_URL, params=params)
 

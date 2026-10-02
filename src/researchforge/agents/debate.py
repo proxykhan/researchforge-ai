@@ -1,10 +1,15 @@
-"""Debate agent — runs a support/skeptic/judge debate on the synthesis."""
+"""Debate agent — runs a support/skeptic/judge debate on the synthesis.
+
+All three roles are produced in one LLM call: the separate calls each resent the
+same synthesis and paper context, which on token-per-minute-limited providers
+cost more wall-clock time than any parallelism could recover.
+"""
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
+import re
 from dataclasses import dataclass, field
 
 from researchforge.agents.state import DebateResult, ResearchState
@@ -14,49 +19,33 @@ from researchforge.llm.models import LLMConfig, Message
 
 logger = logging.getLogger(__name__)
 
-SUPPORT_SYSTEM = """\
-You are a support agent in an academic debate. Given a research synthesis and \
-paper evidence, find the strongest evidence SUPPORTING the main conclusions.
+DEBATE_SYSTEM = """\
+You run a structured academic debate about a research synthesis, using ONLY the \
+paper evidence provided. Play three roles in order:
 
-Be evidence-driven: cite specific papers and findings. Do not invent evidence. \
-If the evidence is genuinely strong, say so. If it is weak, acknowledge that \
-honestly — do not fabricate support.
+1. SUPPORT: the strongest evidence for the synthesis's main conclusions, citing \
+papers by title. If the evidence is weak, say so — do not invent support.
+2. SKEPTIC: legitimate limitations, gaps, or counterevidence, citing papers by \
+title. Do not manufacture disagreement where the evidence agrees.
+3. JUDGE: weigh both sides and state which has stronger evidence, then give a \
+balanced conclusion that reflects the weight of evidence.
 
-Respond with a concise argument (2-4 paragraphs) citing papers by title.\
-"""
+Never cite a paper that is not in the provided list. Keep each argument to one \
+short paragraph.
 
-SKEPTIC_SYSTEM = """\
-You are a skeptic agent in an academic debate. Given a research synthesis and \
-paper evidence, find legitimate challenges, limitations, and counterevidence \
-to the main conclusions.
-
-Be evidence-driven: cite specific papers and findings. Do not create artificial \
-disagreement where evidence is not actually contradictory. If the conclusions \
-are well-supported, say so honestly — do not fabricate objections.
-
-Respond with a concise critique (2-4 paragraphs) citing papers by title.\
-"""
-
-JUDGE_SYSTEM = """\
-You are a judge evaluating an academic debate. Given the support and skeptic \
-arguments, weigh the evidence and reach a balanced conclusion.
-
-Return JSON:
+Return ONLY valid JSON:
 {
-  "judgment": "your evaluation of which side has stronger evidence",
-  "conclusion": "the balanced conclusion incorporating both perspectives"
-}
-
-Be fair. Acknowledge strengths on both sides. The conclusion should reflect \
-the weight of evidence, not simply split the difference.
-
-Return ONLY valid JSON, no other text.\
+  "support_argument": "...",
+  "skeptic_argument": "...",
+  "judgment": "...",
+  "conclusion": "..."
+}\
 """
 
 
 @dataclass
 class DebateAgent:
-    """Runs a three-phase debate: support, skeptic, judge."""
+    """Runs a support/skeptic/judge debate in a single structured call."""
 
     llm: LLMProvider
     llm_config: LLMConfig = field(default_factory=LLMConfig)
@@ -83,63 +72,45 @@ class DebateAgent:
         paper_context = "\n".join(
             f"- {p.title}: {p.abstract[:200]}" for p in papers[:10] if p.abstract
         )
-        parts = [
-            f"Research question: {question}",
-            f"Synthesis:\n{synthesis}",
-            f"Papers:\n{paper_context}",
-        ]
-        context = "\n\n".join(parts)
-
-        support, skeptic = await asyncio.gather(
-            self._run_side(context, SUPPORT_SYSTEM),
-            self._run_side(context, SKEPTIC_SYSTEM),
+        prompt = "\n\n".join(
+            [
+                f"Research question: {question}",
+                f"Synthesis:\n{synthesis}",
+                f"Papers:\n{paper_context}",
+            ]
         )
-        judgment, conclusion = await self._run_judge(context, support, skeptic)
 
-        result = DebateResult(
-            topic=question,
-            support_argument=support,
-            skeptic_argument=skeptic,
-            judgment=judgment,
-            conclusion=conclusion,
+        config = LLMConfig(model=self.llm_config.model, max_tokens=1024, system=DEBATE_SYSTEM)
+        response = await self.llm.complete(
+            messages=[Message(role="user", content=prompt)],
+            config=config,
         )
+
+        result = self._parse(response.content, question)
         logger.info("Debate completed on: %s", question[:80])
         return {"debate_result": result}
 
-    async def _run_side(self, context: str, system: str) -> str:
-        config = LLMConfig(
-            model=self.llm_config.model,
-            max_tokens=1024,
-            system=system,
-        )
-        response = await self.llm.complete(
-            messages=[Message(role="user", content=context)],
-            config=config,
-        )
-        return response.content
-
-    async def _run_judge(self, context: str, support: str, skeptic: str) -> tuple[str, str]:
-        judge_prompt = f"{context}\n\nSUPPORT ARGUMENT:\n{support}\n\nSKEPTIC ARGUMENT:\n{skeptic}"
-        config = LLMConfig(
-            model=self.llm_config.model,
-            max_tokens=1024,
-            system=JUDGE_SYSTEM,
-        )
-        response = await self.llm.complete(
-            messages=[Message(role="user", content=judge_prompt)],
-            config=config,
-        )
-        return self._parse_judgment(response.content)
-
     @staticmethod
-    def _parse_judgment(content: str) -> tuple[str, str]:
-        try:
-            data = json.loads(content)
+    def _parse(content: str, question: str) -> DebateResult:
+        match = re.search(r"\{.*\}", content, re.DOTALL)
+        if match:
+            try:
+                data = json.loads(match.group(0))
+            except json.JSONDecodeError:
+                data = None
             if isinstance(data, dict):
-                return (
-                    str(data.get("judgment", "Unable to judge.")),
-                    str(data.get("conclusion", "No conclusion reached.")),
+                return DebateResult(
+                    topic=question,
+                    support_argument=str(data.get("support_argument", "")),
+                    skeptic_argument=str(data.get("skeptic_argument", "")),
+                    judgment=str(data.get("judgment", "Unable to judge.")),
+                    conclusion=str(data.get("conclusion", "No conclusion reached.")),
                 )
-        except (json.JSONDecodeError, ValueError):
-            logger.warning("Judge returned invalid JSON, using raw response")
-        return (content, content)
+        logger.warning("Debate returned invalid JSON, using raw response")
+        return DebateResult(
+            topic=question,
+            support_argument="",
+            skeptic_argument="",
+            judgment=content,
+            conclusion=content,
+        )

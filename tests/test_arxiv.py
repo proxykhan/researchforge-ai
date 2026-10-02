@@ -6,8 +6,41 @@ from unittest.mock import AsyncMock, patch
 import httpx
 import pytest
 
-from researchforge.integrations.arxiv import ArxivProvider
+from researchforge.integrations import arxiv as arxiv_module
+from researchforge.integrations.arxiv import ArxivProvider, build_search_query
 from researchforge.integrations.models import SearchQuery
+
+
+@pytest.fixture(autouse=True)
+def _no_throttle(monkeypatch):
+    monkeypatch.setattr(arxiv_module, "MIN_REQUEST_INTERVAL", 0.0)
+
+
+class TestBuildSearchQuery:
+    def test_ands_terms_so_arxiv_does_not_or_them(self):
+        assert build_search_query("hippocampal replay during sleep") == (
+            "all:hippocampal AND all:replay AND all:sleep"
+        )
+
+    def test_strips_query_syntax_characters(self):
+        assert build_search_query('"CRISPR-Cas9" (off-target)') == (
+            "all:CRISPR-Cas9 AND all:off-target"
+        )
+
+    def test_falls_back_when_only_stop_words(self):
+        assert build_search_query("the of") == "all:the of"
+
+
+async def test_throttle_spaces_requests(monkeypatch):
+    monkeypatch.setattr(arxiv_module, "MIN_REQUEST_INTERVAL", 0.2)
+    monkeypatch.setattr(arxiv_module, "_last_request_at", 0.0)
+    import asyncio
+    import time
+
+    start = time.monotonic()
+    await asyncio.gather(*(arxiv_module._wait_for_slot() for _ in range(3)))
+    assert time.monotonic() - start >= 0.39
+
 
 SAMPLE_ATOM_RESPONSE = """<?xml version="1.0" encoding="UTF-8"?>
 <feed xmlns="http://www.w3.org/2005/Atom"

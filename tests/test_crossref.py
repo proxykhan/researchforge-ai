@@ -145,3 +145,18 @@ class TestCrossrefProvider:
         params = call_kwargs.kwargs.get("params") or call_kwargs[1].get("params")
         assert "from-pub-date:2023" in params["filter"]
         assert "until-pub-date:2024" in params["filter"]
+        assert "type:journal-article" in params["filter"]
+
+    async def test_excludes_non_paper_record_types(self, provider):
+        empty_resp = {"status": "ok", "message": {"total-results": 0, "items": []}}
+        mock_resp = _mock_json_response(empty_resp)
+
+        with patch.object(
+            provider, "_request_with_retry", new_callable=AsyncMock, return_value=mock_resp
+        ) as mock:
+            await provider.search(SearchQuery(query="test"))
+
+        params = mock.call_args.kwargs["params"]
+        assert params["filter"] == (
+            "type:journal-article,type:proceedings-article,type:posted-content"
+        )
