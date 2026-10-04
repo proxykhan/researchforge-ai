@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Request, Security
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from researchforge.auth.dependencies import AuthenticatedUser
 from researchforge.auth.jwt import create_access_token
@@ -15,15 +15,31 @@ _bearer_scheme = HTTPBearer(auto_error=False)
 _bearer_security = Security(_bearer_scheme)
 
 
+def _normalize_email(value: object) -> object:
+    # Phone keyboards capitalise the first letter and autofill can add spaces;
+    # without this the same person gets "Invalid email or password".
+    return value.strip().lower() if isinstance(value, str) else value
+
+
 class RegisterRequest(BaseModel):
     email: str = Field(min_length=3, max_length=320)
     name: str = Field(min_length=1, max_length=200)
     password: str = Field(min_length=6, max_length=128)
 
+    @field_validator("email", mode="before")
+    @classmethod
+    def normalize_email(cls, value: object) -> object:
+        return _normalize_email(value)
+
 
 class LoginRequest(BaseModel):
     email: str = Field(min_length=3, max_length=320)
     password: str = Field(min_length=1, max_length=128)
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def normalize_email(cls, value: object) -> object:
+        return _normalize_email(value)
 
 
 class AuthResponse(BaseModel):

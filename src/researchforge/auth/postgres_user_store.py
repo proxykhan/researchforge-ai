@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from researchforge.auth.dependencies import AuthenticatedUser
@@ -28,7 +28,9 @@ class PostgresUserStore:
 
     async def authenticate(self, email: str, password: str) -> AuthenticatedUser | None:
         async with self._sf() as session:
-            stmt = select(UserRow).where(UserRow.email == email, UserRow.is_active.is_(True))
+            stmt = select(UserRow).where(
+                func.lower(UserRow.email) == email.strip().lower(), UserRow.is_active.is_(True)
+            )
             result = await session.execute(stmt)
             row = result.scalar_one_or_none()
             if row is None or not verify_password(password, row.password_hash):
@@ -44,7 +46,7 @@ class PostgresUserStore:
 
     async def email_exists(self, email: str) -> bool:
         async with self._sf() as session:
-            stmt = select(UserRow.id).where(UserRow.email == email)
+            stmt = select(UserRow.id).where(func.lower(UserRow.email) == email.strip().lower())
             result = await session.execute(stmt)
             return result.scalar_one_or_none() is not None
 
