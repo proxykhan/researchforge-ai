@@ -8,6 +8,7 @@ from alembic import context
 from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
+from researchforge.config import normalize_database_url
 from researchforge.database.models import Base
 
 config = context.config
@@ -16,12 +17,10 @@ if config.config_file_name is not None:
 
 target_metadata = Base.metadata
 
-db_url = os.getenv("DATABASE_URL", "")
+db_url = normalize_database_url(os.getenv("DATABASE_URL", ""))
 if db_url:
-    db_url = db_url.replace("postgres://", "postgresql+asyncpg://").replace(
-        "postgresql://", "postgresql+asyncpg://"
-    )
-    config.set_main_option("sqlalchemy.url", db_url)
+    # ConfigParser treats % as interpolation; URL-encoded passwords contain it.
+    config.set_main_option("sqlalchemy.url", db_url.replace("%", "%%"))
 
 
 def run_migrations_offline() -> None:

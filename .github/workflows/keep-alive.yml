@@ -1,0 +1,27 @@
+name: Keep API awake
+
+# Render's free tier sleeps a web service after 15 minutes without traffic and
+# takes about a minute to wake. Pinging /health (which does not touch the
+# database, so Neon can still scale to zero) keeps the API warm.
+#
+# Disabled until the repository variable KEEP_ALIVE_URL is set. Render's 750 free
+# instance hours per month cover ONE always-on service, so only enable this once
+# the API is the only free web service left in the Render workspace.
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  ping:
+    if: vars.KEEP_ALIVE_URL != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Ping health endpoint
+        env:
+          URL: ${{ vars.KEEP_ALIVE_URL }}
+        run: curl --fail --silent --show-error --max-time 90 --retry 2 --retry-delay 10 "$URL"

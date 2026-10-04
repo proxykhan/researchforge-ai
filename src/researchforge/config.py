@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import os
+import re
 from dataclasses import dataclass
+from urllib.parse import parse_qsl, urlencode
 
 
 @dataclass(frozen=True)
@@ -45,6 +47,28 @@ class Settings:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
 
 
+def normalize_database_url(url: str) -> str:
+    """Adapt a provider's Postgres URL (Render, Neon, ...) for SQLAlchemy + asyncpg.
+
+    asyncpg takes ``ssl`` instead of libpq's ``sslmode`` and has no
+    ``channel_binding`` option; passing either crashes the connection at startup.
+    """
+    if not url:
+        return url
+    url = re.sub(r"^postgres(ql)?://", "postgresql+asyncpg://", url)
+    base, _, query = url.partition("?")
+    if not query:
+        return url
+    params = []
+    for key, value in parse_qsl(query, keep_blank_values=True):
+        if key == "channel_binding":
+            continue
+        if key == "sslmode":
+            key = "ssl"
+        params.append((key, value))
+    return f"{base}?{urlencode(params)}" if params else base
+
+
 def load_settings() -> Settings:
     """Load settings from environment variables."""
     return Settings(
@@ -53,9 +77,7 @@ def load_settings() -> Settings:
         log_level=os.getenv("APP_LOG_LEVEL", "INFO"),
         llm_provider=os.getenv("LLM_PROVIDER", "anthropic"),
         llm_model=os.getenv("LLM_MODEL", "claude-sonnet-5"),
-        database_url=os.getenv("DATABASE_URL", "")
-        .replace("postgres://", "postgresql+asyncpg://")
-        .replace("postgresql://", "postgresql+asyncpg://"),
+        database_url=normalize_database_url(os.getenv("DATABASE_URL", "")),
         db_pool_size=int(os.getenv("DB_POOL_SIZE", "5")),
         db_max_overflow=int(os.getenv("DB_MAX_OVERFLOW", "10")),
         redis_url=os.getenv("REDIS_URL", ""),
